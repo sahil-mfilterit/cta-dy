@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tap Rhythm Verification</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            touch-action: none;
+        }
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .tap-area {
+            width: 180px;
+            height: 180px;
+            margin: 20px auto;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            touch-action: none;
+            user-select: none;
+            transition: all 0.1s ease;
+            border: none;
+        }
+        .tap-area:active { transform: scale(0.92); }
+        .tap-area .icon { font-size: 3.5rem; }
+        .tap-area .label { font-size: 1rem; margin-top: 8px; }
+        .tap-area.pulse { animation: pulse 0.3s ease; }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .status-box {
+            padding: 12px;
+            border-radius: 12px;
+            margin: 15px 0;
+            background: #f8f9fa;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        .status-box.success { background: #d4edda; border: 2px solid #28a745; }
+        .status-box.info { background: #d1ecf1; border: 2px solid #17a2b8; }
+        .status-box.error { background: #f8d7da; border: 2px solid #dc3545; }
+        .status-box .main { font-weight: 600; font-size: 1rem; }
+        .status-box .sub { font-size: 0.85rem; color: #666; }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f5576c;
+            color: white;
+            touch-action: manipulation;
+            margin-top: 10px;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-secondary { background: #6c757d; }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+            font-size: 0.85rem;
+        }
+        .stats div { background: #f8f9fa; padding: 10px; border-radius: 8px; }
+        .stats .label { color: #999; font-size: 0.7rem; text-transform: uppercase; }
+        .stats .value { font-weight: 700; color: #333; margin-top: 3px; }
+        .tap-timeline {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        .tap-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #dee2e6;
+            transition: all 0.3s ease;
+        }
+        .tap-dot.filled { background: #f5576c; transform: scale(1.2); }
+        .tap-dot.success { background: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>👆 Tap Rhythm</h2>
+        <p style="color: #666; margin-bottom: 10px; font-size: 0.9rem;">Tap in a natural rhythm</p>
+        
+        <button class="tap-area" id="tapArea">
+            <span class="icon" id="tapIcon">👆</span>
+            <span class="label" id="tapLabel">Tap here</span>
+        </button>
+        
+        <div class="tap-timeline" id="tapTimeline">
+            <div class="tap-dot"></div>
+            <div class="tap-dot"></div>
+            <div class="tap-dot"></div>
+            <div class="tap-dot"></div>
+            <div class="tap-dot"></div>
+            <div class="tap-dot"></div>
+            <div class="tap-dot"></div>
+            <div class="tap-dot"></div>
+        </div>
+        
+        <div class="status-box" id="statusBox">
+            <div class="main" id="mainStatus">🔄 Tap the circle to start</div>
+            <div class="sub" id="subStatus">Tap 5 times in a natural rhythm</div>
+        </div>
+        
+        <button class="btn" id="startBtn">▶ Start</button>
+        <button class="btn btn-secondary" id="resetBtn" style="margin-top: 8px;">🔄 Reset</button>
+        
+        <div class="stats">
+            <div><div class="label">Taps</div><div class="value" id="tapCount">0/5</div></div>
+            <div><div class="label">Avg Interval</div><div class="value" id="avgInterval">0ms</div></div>
+            <div><div class="label">Status</div><div class="value" id="verifyStatus">⏳</div></div>
+        </div>
+    </div>
+    
+    <script>
+        const state = {
+            isActive: false,
+            isVerified: false,
+            taps: [],
+            tapCount: 0,
+            startTime: null,
+            lastTapTime: null,
+            intervals: [],
+            requiredTaps: 5
+        };
+        
+        const tapArea = document.getElementById('tapArea');
+        const tapIcon = document.getElementById('tapIcon');
+        const tapLabel = document.getElementById('tapLabel');
+        const mainStatus = document.getElementById('mainStatus');
+        const subStatus = document.getElementById('subStatus');
+        const statusBox = document.getElementById('statusBox');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const tapDots = document.querySelectorAll('.tap-dot');
+        
+        function updateUI() {
+            document.getElementById('tapCount').textContent = `${state.tapCount}/${state.requiredTaps}`;
+            document.getElementById('verifyStatus').textContent = state.isVerified ? '✅' : '⏳';
+            
+            // Update dots
+            tapDots.forEach((dot, i) => {
+                dot.className = 'tap-dot';
+                if (i < state.tapCount) {
+                    dot.classList.add('filled');
+                    if (state.isVerified) dot.classList.add('success');
+                }
+            });
+            
+            // Update avg interval
+            if (state.intervals.length > 0) {
+                const avg = state.intervals.reduce((a,b) => a + b, 0) / state.intervals.length;
+                document.getElementById('avgInterval').textContent = Math.round(avg) + 'ms';
+            }
+        }
+        
+        function calculateScore() {
+            if (state.intervals.length < state.requiredTaps - 1) return 0;
+            
+            // Calculate variance (how consistent the taps are)
+            const avg = state.intervals.reduce((a,b) => a + b, 0) / state.intervals.length;
+            const variance = state.intervals.reduce((a,b) => a + Math.pow(b - avg, 2), 0) / state.intervals.length;
+            const stdDev = Math.sqrt(variance);
+            
+            // Human taps: 200-800ms intervals with some variation
+            const isHumanSpeed = avg > 150 && avg < 900;
+            const hasNaturalVariation = stdDev > 30 && stdDev < 300;
+            
+            return { isHumanSpeed, hasNaturalVariation, avg, stdDev };
+        }
+        
+        function verifyUser() {
+            if (state.isVerified) return;
+            
+            const score = calculateScore();
+            
+            if (state.tapCount >= state.requiredTaps && score.isHumanSpeed && score.hasNaturalVariation) {
+                state.isVerified = true;
+                state.isActive = false;
+                mainStatus.textContent = '✅ Human Verified!';
+                subStatus.textContent = `🎉 Natural rhythm detected (${Math.round(score.avg)}ms avg)`;
+                statusBox.className = 'status-box success';
+                tapIcon.textContent = '✅';
+                tapLabel.textContent = 'Verified!';
+                tapArea.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
+                startBtn.disabled = true;
+                startBtn.textContent = '✅ Verified';
+                document.getElementById('verifyStatus').textContent = '✅';
+                
+                // Send data for fingerprinting
+                console.log('Tap Data:', {
+                    intervals: state.intervals,
+                    average: score.avg,
+                    stdDev: score.stdDev,
+                    totalTime: Date.now() - state.startTime
+                });
+            } else if (state.tapCount >= state.requiredTaps) {
+                // Failed verification
+                mainStatus.textContent = '❌ Unnatural pattern';
+                subStatus.textContent = 'Tap more naturally (vary your speed)';
+                statusBox.className = 'status-box error';
+                setTimeout(() => {
+                    resetTaps();
+                }, 2000);
+            }
+        }
+        
+        function handleTap() {
+            if (!state.isActive || state.isVerified) return;
+            
+            const now = Date.now();
+            state.tapCount++;
+            
+            // Calculate interval
+            if (state.lastTapTime) {
+                const interval = now - state.lastTapTime;
+                state.intervals.push(interval);
+            }
+            
+            state.lastTapTime = now;
+            
+            // Visual feedback
+            tapArea.classList.remove('pulse');
+            void tapArea.offsetWidth;
+            tapArea.classList.add('pulse');
+            
+            // Haptic feedback
+            if (navigator.vibrate) {
+                navigator.vibrate(10);
+            }
+            
+            updateUI();
+            
+            // Update status
+            const remaining = state.requiredTaps - state.tapCount;
+            if (remaining > 0) {
+                mainStatus.textContent = `👆 Tap ${remaining} more time${remaining > 1 ? 's' : ''}`;
+                subStatus.textContent = `Tap ${state.tapCount}/${state.requiredTaps}`;
+                statusBox.className = 'status-box info';
+            }
+            
+            // Check if done
+            if (state.tapCount >= state.requiredTaps) {
+                verifyUser();
+            }
+        }
+        
+        function resetTaps() {
+            state.tapCount = 0;
+            state.intervals = [];
+            state.lastTapTime = null;
+            state.isVerified = false;
+            state.isActive = false;
+            
+            tapIcon.textContent = '👆';
+            tapLabel.textContent = 'Tap here';
+            tapArea.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+            mainStatus.textContent = '🔄 Tap the circle to start';
+            subStatus.textContent = 'Tap 5 times in a natural rhythm';
+            statusBox.className = 'status-box';
+            startBtn.disabled = false;
+            startBtn.textContent = '▶ Start';
+            document.getElementById('verifyStatus').textContent = '⏳';
+            
+            updateUI();
+        }
+        
+        // Events
+        tapArea.addEventListener('click', handleTap);
+        tapArea.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleTap();
+        }, { passive: false });
+        
+        startBtn.addEventListener('click', () => {
+            if (state.isVerified) return;
+            resetTaps();
+            state.isActive = true;
+            state.startTime = Date.now();
+            state.tapCount = 0;
+            state.intervals = [];
+            state.lastTapTime = null;
+            
+            mainStatus.textContent = '👆 Tap the circle!';
+            subStatus.textContent = `Tap ${state.requiredTaps} times naturally`;
+            statusBox.className = 'status-box info';
+            startBtn.disabled = true;
+            startBtn.textContent = '⏳ Tapping...';
+            tapIcon.textContent = '👆';
+            tapLabel.textContent = 'Tap now!';
+            updateUI();
+        });
+        
+        resetBtn.addEventListener('click', resetTaps);
+        
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                handleTap();
+            }
+        });
+        
+        updateUI();
+    </script>
+</body>
+</html>
