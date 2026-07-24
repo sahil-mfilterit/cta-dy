@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Detection CTAs - Interactive Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h3 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card .badge {
+            background: #667eea;
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 10px;
+            border-radius: 20px;
+            margin-left: auto;
+        }
+
+        .card .description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        .card .interaction-area {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            border: 2px dashed #dee2e6;
+            transition: border-color 0.3s ease;
+            position: relative;
+        }
+
+        .card .interaction-area.active {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+
+        .card .interaction-area.completed {
+            border-color: #28a745;
+            background: #f0fff4;
+        }
+
+        .status {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            text-align: center;
+            background: #f8f9fa;
+            color: #666;
+            transition: all 0.3s ease;
+            min-height: 36px;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            background: #667eea;
+            color: white;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #5a6fd6;
+            transform: scale(1.02);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        /* 1. Drag & Drop */
+        .draggable-item {
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            border-radius: 10px;
+            cursor: grab;
+            user-select: none;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .draggable-item:active {
+            cursor: grabbing;
+        }
+
+        .draggable-item.dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+
+        .drop-target {
+            padding: 20px 40px;
+            background: #e9ecef;
+            border: 3px dashed #6c757d;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+        }
+
+        .drop-target.dragover {
+            background: #cce5ff;
+            border-color: #667eea;
+            transform: scale(1.05);
+        }
+
+        .drop-target.dropped {
+            background: #d4edda;
+            border-color: #28a745;
+        }
+
+        /* 2. Slider */
+        .slider-verify {
+            width: 100%;
+            height: 8px;
+            -webkit-appearance: none;
+            background: #dee2e6;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .slider-verify::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            background: #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .slider-verify::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        .slider-verify::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            background: #667eea;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .slider-label {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        /* 3. Pattern Draw */
+        #patternCanvas {
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            cursor: crosshair;
+            background: white;
+            touch-action: none;
+        }
+
+        /* 4. Click Grid */
+        .click-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 200px;
+        }
+
+        .grid-item {
+            aspect-ratio: 1;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .grid-item:hover {
+            border-color: #667eea;
+            transform: scale(1.05);
+        }
+
+        .grid-item.clicked {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .grid-item.correct {
+            background: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+
+        .grid-item.wrong {
+            background: #dc3545;
+            color: white;
+            border-color: #dc3545;
+        }
+
+        /* 5. Scroll */
+        .scroll-verify {
+            height: 150px;
+            overflow-y: scroll;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+            width: 100%;
+        }
+
+        .scroll-verify::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scroll-verify::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+
+        .scroll-content {
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .scroll-content p {
+            margin-bottom: 15px;
+        }
+
+        /* 6. Hover */
+        .hover-reveal {
+            padding: 20px 40px;
+            background: #667eea;
+            color: white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            width: 100%;
+            text-align: center;
+        }
+
+        .hover-reveal.hovering {
+            background: #28a745;
+            transform: scale(1.05);
+        }
+
+        .hover-reveal.completed {
+            background: #28a745;
+        }
+
+        /* 7. Tilt */
+        .tilt-indicator {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #e9ecef;
+            position: relative;
+            overflow: hidden;
+            border: 3px solid #dee2e6;
+        }
+
+        .tilt-ball {
+            width: 30px;
+            height: 30px;
+            background: #667eea;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s ease;
+        }
+
+        /* 8. Timing */
+        .timing-target {
+            padding: 20px 40px;
+            background: #dc3545;
+            color: white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            width: 100%;
+            text-align: center;
+            user-select: none;
+        }
+
+        .timing-target.ready {
+            background: #28a745;
+        }
+
+        /* 9. Audio */
+        .audio-verify {
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .audio-verify:hover {
+            background: #5a6fd6;
+            transform: scale(1.02);
+        }
+
+        .audio-verify.recording {
+            background: #dc3545;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        /* 10. Keyboard */
+        .keyboard-verify {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .keyboard-verify kbd {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            box-shadow: 0 2px 0 #dee2e6;
+        }
+
+        .keyboard-status {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        /* Data Display */
+        .data-panel {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-top: 20px;
+        }
+
+        .data-panel h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .data-panel .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .data-item {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        .data-item strong {
+            color: #333;
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        .data-item span {
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .reset-all {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🛡️ Bot Detection CTAs</h1>
+        <p class="subtitle">10 different interaction methods • Hover, click, or drag to test each</p>
+
+        <div class="grid" id="ctaGrid">
+            <!-- 1. Drag & Drop -->
+            <div class="card">
+                <h3>📦 Drag & Drop <span class="badge">Easy</span></h3>
+                <p class="description">Drag the item to the target zone</p>
+                <div class="interaction-area" data-cta="dragdrop">
+                    <div class="draggable-item" draggable="true" id="draggableItem">📦 Drag me</div>
+                    <div class="drop-target" id="dropTarget">Drop here to verify</div>
+                </div>
+                <div class="status" id="dragStatus">Waiting for interaction...</div>
+            </div>
+
+            <!-- 2. Slider -->
+            <div class="card">
+                <h3>🎚️ Slide to Verify <span class="badge">Very Easy</span></h3>
+                <p class="description">Slide the knob to 100%</p>
+                <div class="interaction-area" data-cta="slider">
+                    <input type="range" min="0" max="100" value="0" class="slider-verify" id="sliderVerify">
+                    <span class="slider-label" id="sliderLabel">0%</span>
+                </div>
+                <div class="status" id="sliderStatus">Waiting for interaction...</div>
+            </div>
+
+            <!-- 3. Pattern Draw -->
+            <div class="card">
+                <h3>✏️ Draw a Circle <span class="badge">Medium</span></h3>
+                <p class="description">Draw a circle on the canvas</p>
+                <div class="interaction-area" data-cta="pattern">
+                    <canvas id="patternCanvas" width="200" height="150"></canvas>
+                    <button class="btn btn-secondary" id="clearCanvas">Clear</button>
+                </div>
+                <div class="status" id="patternStatus">Draw a circle to verify</div>
+            </div>
+
+            <!-- 4. Click Grid -->
+            <div class="card">
+                <h3>🎯 Sequential Click <span class="badge">Easy</span></h3>
+                <p class="description">Click dots in order: 1 → 2 → 3</p>
+                <div class="interaction-area" data-cta="clickgrid">
+                    <div class="click-grid" id="clickGrid">
+                        <div class="grid-item" data-order="1">①</div>
+                        <div class="grid-item" data-order="2">②</div>
+                        <div class="grid-item" data-order="3">③</div>
+                    </div>
+                </div>
+                <div class="status" id="gridStatus">Click in order: 1 → 2 → 3</div>
+            </div>
+
+            <!-- 5. Scroll -->
+            <div class="card">
+                <h3>📜 Scroll to Verify <span class="badge">Very Easy</span></h3>
+                <p class="description">Scroll to the bottom of the content</p>
+                <div class="interaction-area" data-cta="scroll">
+                    <div class="scroll-verify" id="scrollVerify">
+                        <div class="scroll-content">
+                            <p>📝 Scroll down to verify you're human...</p>
+                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+                            <p>Sed do eiusmod tempor incididunt ut labore et dolore.</p>
+                            <p>Magna aliqua. Ut enim ad minim veniam.</p>
+                            <p>Quis nostrud exercitation ullamco laboris.</p>
+                            <p>🎯 Keep going... almost there!</p>
+                            <p>⬇️ One more scroll to verify</p>
+                            <p style="color: #667eea; font-weight: bold;">✅ You've reached the bottom!</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="status" id="scrollStatus">Scroll to the bottom</div>
+            </div>
+
+            <!-- 6. Hover -->
+            <div class="card">
+                <h3>🖱️ Hover to Reveal <span class="badge">Very Easy</span></h3>
+                <p class="description">Hover here for 2 seconds</p>
+                <div class="interaction-area" data-cta="hover">
+                    <div class="hover-reveal" id="hoverReveal">
+                        👆 Hover here for 2 seconds
+                    </div>
+                </div>
+                <div class="status" id="hoverStatus">Hover for 2 seconds...</div>
+            </div>
+
+            <!-- 7. Tilt -->
+            <div class="card">
+                <h3>📱 Tilt Device <span class="badge">Mobile</span></h3>
+                <p class="description">Tilt your device (or use mouse)</p>
+                <div class="interaction-area" data-cta="tilt">
+                    <div class="tilt-indicator" id="tiltIndicator">
+                        <div class="tilt-ball" id="tiltBall"></div>
+                    </div>
+                    <span style="font-size: 0.85rem; color: #666;">Move mouse or tilt device</span>
+                </div>
+                <div class="status" id="tiltStatus">Move your device or mouse</div>
+            </div>
+
+            <!-- 8. Timing -->
+            <div class="card">
+                <h3>⏱️ Timing Puzzle <span class="badge">Medium</span></h3>
+                <p class="description">Click when the box turns green</p>
+                <div class="interaction-area" data-cta="timing">
+                    <div class="timing-target" id="timingTarget">Click when green!</div>
+                </div>
+                <div class="status" id="timingStatus">Wait for green...</div>
+            </div>
+
+            <!-- 9. Audio -->
+            <div class="card">
+                <h3>🎤 Audio/Tap Verify <span class="badge">Easy</span></h3>
+                <p class="description">Tap or say "verify"</p>
+                <div class="interaction-area" data-cta="audio">
+                    <button class="audio-verify" id="audioVerify">🎤 Tap to verify</button>
+                </div>
+                <div class="status" id="audioStatus">Tap the button to verify</div>
+            </div>
+
+            <!-- 10. Keyboard -->
+            <div class="card">
+                <h3>⌨️ Keyboard Combo <span class="badge">Easy</span></h3>
+                <p class="description">Press the key combination</p>
+                <div class="interaction-area" data-cta="keyboard">
+                    <div class="keyboard-verify">
+                        <div>
+                            <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>V</kbd>
+                        </div>
+                        <div class="keyboard-status" id="keyboardStatus">Press the combo to verify</div>
+                    </div>
+                </div>
+                <div class="status" id="keyboardStatus2">Waiting for key combo...</div>
+            </div>
+        </div>
+
+        <!-- Data Collection Panel -->
+        <div class="data-panel">
+            <h2>📊 Collected Interaction Data</h2>
+            <div class="data-grid" id="dataGrid">
+                <div class="data-item">
+                    <strong>Mouse Movements</strong>
+                    <span id="moveCount">0</span>
+                </div>
+                <div class="data-item">
+                    <strong>Clicks</strong>
+                    <span id="clickCount">0</span>
+                </div>
+                <div class="data-item">
+                    <strong>Key Presses</strong>
+                    <span id="keyCount">0</span>
+                </div>
+                <div class="data-item">
+                    <strong>Scroll Events</strong>
+                    <span id="scrollCount">0</span>
+                </div>
+                <div class="data-item">
+                    <strong>Touch Events</strong>
+                    <span id="touchCount">0</span>
+                </div>
+                <div class="data-item">
+                    <strong>Completed CTAs</strong>
+                    <span id="completedCount">0 / 10</span>
+                </div>
+            </div>
+            <div class="reset-all">
+                <button class="btn btn-secondary" id="resetAll">🔄 Reset All</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // GLOBAL DATA COLLECTION
+        // ============================================
+        const stats = {
+            moves: 0,
+            clicks: 0,
+            keys: 0,
+            scrolls: 0,
+            touches: 0,
+            completed: new Set()
+        };
+
+        function updateStats() {
+            document.getElementById('moveCount').textContent = stats.moves;
+            document.getElementById('clickCount').textContent = stats.clicks;
+            document.getElementById('keyCount').textContent = stats.keys;
+            document.getElementById('scrollCount').textContent = stats.scrolls;
+            document.getElementById('touchCount').textContent = stats.touches;
+            document.getElementById('completedCount').textContent = `${stats.completed.size} / 10`;
+        }
+
+        function markComplete(ctaName) {
+            stats.completed.add(ctaName);
+            updateStats();
+        }
+
+        // Track global events
+        document.addEventListener('mousemove', () => {
+            stats.moves++;
+            updateStats();
+        });
+
+        document.addEventListener('click', () => {
+            stats.clicks++;
+            updateStats();
+        });
+
+        document.addEventListener('keydown', () => {
+            stats.keys++;
+            updateStats();
+        });
+
+        document.addEventListener('scroll', () => {
+            stats.scrolls++;
+            updateStats();
+        }, { passive: true });
+
+        document.addEventListener('touchstart', () => {
+            stats.touches++;
+            updateStats();
+        }, { passive: true });
+
+        // ============================================
+        // 1. DRAG & DROP
+        // ============================================
+        const draggable = document.getElementById('draggableItem');
+        const dropTarget = document.getElementById('dropTarget');
+        const dragStatus = document.getElementById('dragStatus');
+
+        draggable.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', 'drag');
+            draggable.classList.add('dragging');
+            dragStatus.textContent = '🔄 Dragging...';
+            dragStatus.className = 'status info';
+        });
+
+        draggable.addEventListener('dragend', () => {
+            draggable.classList.remove('dragging');
+        });
+
+        dropTarget.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropTarget.classList.add('dragover');
+        });
+
+        dropTarget.addEventListener('dragleave', () => {
+            dropTarget.classList.remove('dragover');
+        });
+
+        dropTarget.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropTarget.classList.remove('dragover');
+            dropTarget.classList.add('dropped');
+            dropTarget.textContent = '✅ Verified!';
+            dragStatus.textContent = '✅ Drag & Drop verified!';
+            dragStatus.className = 'status success';
+            document.querySelector('.interaction-area[data-cta="dragdrop"]').classList.add('completed');
+            markComplete('dragdrop');
+        });
+
+        // ============================================
+        // 2. SLIDER
+        // ============================================
+        const slider = document.getElementById('sliderVerify');
+        const sliderLabel = document.getElementById('sliderLabel');
+        const sliderStatus = document.getElementById('sliderStatus');
+        let sliderCompleted = false;
+
+        slider.addEventListener('input', () => {
+            const value = slider.value;
+            sliderLabel.textContent = value + '%';
+
+            if (value == 100 && !sliderCompleted) {
+                sliderCompleted = true;
+                sliderStatus.textContent = '✅ Slider verified!';
+                sliderStatus.className = 'status success';
+                document.querySelector('.interaction-area[data-cta="slider"]').classList.add('completed');
+                markComplete('slider');
+            } else if (value < 100) {
+                sliderStatus.textContent = `Slide to 100% (${value}%)`;
+                sliderStatus.className = 'status';
+            }
+        });
+
+        // ============================================
+        // 3. PATTERN DRAW
+        // ============================================
+        const canvas = document.getElementById('patternCanvas');
+        const ctx = canvas.getContext('2d');
+        const patternStatus = document.getElementById('patternStatus');
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let points = [];
+        let patternCompleted = false;
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            isDrawing = true;
+            points = [{ x, y }];
+            lastX = x;
+            lastY = y;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            points.push({ x, y });
+            lastX = x;
+            lastY = y;
+
+            // Check if it looks like a circle
+            if (points.length > 30 && !patternCompleted) {
+                checkCircle();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDrawing = false;
+        });
+
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            isDrawing = true;
+            points = [{ x, y }];
+            lastX = x;
+            lastY = y;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!isDrawing) return;
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            points.push({ x, y });
+            lastX = x;
+            lastY = y;
+
+            if (points.length > 30 && !patternCompleted) {
+                checkCircle();
+            }
+        });
+
+        canvas.addEventListener('touchend', () => {
+            isDrawing = false;
+        });
+
+        function checkCircle() {
+            // Simple circle detection: check if points form a closed loop
+            if (points.length < 30) return;
+
+            const first = points[0];
+            const last = points[points.length - 1];
+            const distance = Math.sqrt(Math.pow(last.x - first.x, 2) + Math.pow(last.y - first.y, 2));
+
+            // Check if start and end are close (closed loop)
+            if (distance < 30) {
+                patternCompleted = true;
+                patternStatus.textContent = '✅ Circle drawn! Verified!';
+                patternStatus.className = 'status success';
+                document.querySelector('.interaction-area[data-cta="pattern"]').classList.add('completed');
+                markComplete('pattern');
+                ctx.strokeStyle = '#28a745';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }
+        }
+
+        document.getElementById('clearCanvas').addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            points = [];
+            patternCompleted = false;
+            patternStatus.textContent = 'Draw a circle to verify';
+            patternStatus.className = 'status';
+            document.querySelector('.interaction-area[data-cta="pattern"]').classList.remove('completed');
+            stats.completed.delete('pattern');
+            updateStats();
+        });
+
+        // ============================================
+        // 4. CLICK GRID
+        // ============================================
+        const gridItems = document.querySelectorAll('.grid-item');
+        const gridStatus = document.getElementById('gridStatus');
+        let nextOrder = 1;
+        let gridCompleted = false;
+
+        gridItems.forEach(item => {
+            item.addEventListener('click', () => {
+                if (gridCompleted) return;
+
+                const order = parseInt(item.dataset.order);
+
+                if (order === nextOrder) {
+                    item.classList.add('correct');
+                    item.classList.remove('clicked');
+                    nextOrder++;
+
+                    if (nextOrder === 4) {
+                        gridCompleted = true;
+                        gridStatus.textContent = '✅ All clicked in order! Verified!';
+                        gridStatus.className = 'status success';
+                        document.querySelector('.interaction-area[data-cta="clickgrid"]').classList.add('completed');
+                        markComplete('clickgrid');
+                    } else {
+                        gridStatus.textContent = `✅ Clicked ${order}! Now click ${nextOrder}`;
+                        gridStatus.className = 'status info';
+                    }
+                } else if (!item.classList.contains('correct')) {
+                    item.classList.add('wrong');
+                    setTimeout(() => {
+                        item.classList.remove('wrong');
+                    }, 500);
+                    gridStatus.textContent = `❌ Wrong order! Click ${nextOrder} next`;
+                    gridStatus.className = 'status error';
+                }
+            });
+        });
+
+        // ============================================
+        // 5. SCROLL
+        // ============================================
+        const scrollVerify = document.getElementById('scrollVerify');
+        const scrollStatus = document.getElementById('scrollStatus');
+        let scrollCompleted = false;
+
+        scrollVerify.addEventListener('scroll', () => {
+            if (scrollCompleted) return;
+
+            const scrollBottom = scrollVerify.scrollHeight - scrollVerify.scrollTop - scrollVerify.clientHeight;
+
+            if (scrollBottom < 10) {
+                scrollCompleted = true;
+                scrollStatus.textContent = '✅ Scrolled to bottom! Verified!';
+                scrollStatus.className = 'status success';
+                document.querySelector('.interaction-area[data-cta="scroll"]').classList.add('completed');
+                markComplete('scroll');
+            } else {
+                const percent = Math.round((scrollVerify.scrollTop / (scrollVerify.scrollHeight - scrollVerify.clientHeight)) * 100);
+                scrollStatus.textContent = `Scrolling... ${percent}%`;
+                scrollStatus.className = 'status info';
+            }
+        });
+
+        // ============================================
+        // 6. HOVER
+        // ============================================
+        const hoverReveal = document.getElementById('hoverReveal');
+        const hoverStatus = document.getElementById('hoverStatus');
+        let hoverTimer = null;
+        let hoverCompleted = false;
+
+        hoverReveal.addEventListener('mouseenter', () => {
+            if (hoverCompleted) return;
+            hoverReveal.classList.add('hovering');
+            hoverStatus.textContent = '⏳ Hovering... 0s';
+            hoverStatus.className = 'status info';
+
+            let seconds = 0;
+            hoverTimer = setInterval(() => {
+                seconds++;
+                hoverStatus.textContent = `⏳ Hovering... ${seconds}s`;
+
+                if (seconds >= 2) {
+                    clearInterval(hoverTimer);
+                    hoverCompleted = true;
+                    hoverReveal.classList.add('completed');
+                    hoverReveal.textContent = '✅ Verified!';
+                    hoverStatus.textContent = '✅ Hover verified!';
+                    hoverStatus.className = 'status success';
+                    document.querySelector('.interaction-area[data-cta="hover"]').classList.add('completed');
+                    markComplete('hover');
+                }
+            }, 1000);
+        });
+
+        hoverReveal.addEventListener('mouseleave', () => {
+            if (hoverTimer && !hoverCompleted) {
+                clearInterval(hoverTimer);
+                hoverStatus.textContent = '⏹️ Hover interrupted. Try again.';
+                hoverStatus.className = 'status error';
+                hoverReveal.classList.remove('hovering');
+            }
+        });
+
+        // ============================================
+        // 7. TILT
+        // ============================================
+        const tiltBall = document.getElementById('tiltBall');
+        const tiltStatus = document.getElementById('tiltStatus');
+        let tiltCompleted = false;
+        let tiltMoved = false;
+
+        document.addEventListener('mousemove', (e) => {
+            if (tiltCompleted) return;
+
+            const x = (e.clientX / window.innerWidth - 0.5) * 2;
+            const y = (e.clientY / window.innerHeight - 0.5) * 2;
+
+            tiltBall.style.transform = `translate(calc(-50% + ${x * 30}px), calc(-50% + ${y * 20}px))`;
+
+            if (!tiltMoved) {
+                tiltMoved = true;
+                tiltStatus.textContent = '✅ Device movement detected!';
+                tiltStatus.className = 'status info';
+            }
+
+            // Check if moved enough
+            if (Math.abs(x) > 0.3 || Math.abs(y) > 0.3) {
+                if (!tiltCompleted) {
+                    tiltCompleted = true;
+                    tiltStatus.textContent = '✅ Tilt verified!';
+                    tiltStatus.className = 'status success';
+                    document.querySelector('.interaction-area[data-cta="tilt"]').classList.add('completed');
+                    markComplete('tilt');
+                }
+            }
+        });
+
+        // Device orientation for mobile
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', (e) => {
+                if (tiltCompleted) return;
+                if (e.beta !== null && e.gamma !== null) {
+                    const beta = e.beta || 0;
+                    const gamma = e.gamma || 0;
+
+                    if (Math.abs(beta) > 5 || Math.abs(gamma) > 5) {
+                        if (!tiltCompleted) {
+                            tiltCompleted = true;
+                            tiltStatus.textContent = '✅ Tilt verified!';
+                            tiltStatus.className = 'status success';
+                            document.querySelector('.interaction-area[data-cta="tilt"]').classList.add('completed');
+                            markComplete('tilt');
+                        }
+                    }
+                }
+            });
+        }
+
+        // ============================================
+        // 8. TIMING PUZZLE
+        // ============================================
+        const timingTarget = document.getElementById('timingTarget');
+        const timingStatus = document.getElementById('timingStatus');
+        let timingCompleted = false;
+        let timingReady = false;
+        let timingTimeout = null;
+
+        function resetTiming() {
+            timingReady = false;
+            timingCompleted = false;
+            timingTarget.textContent = 'Click when green!';
+            timingTarget.className = 'timing-target';
+            timingStatus.textContent = '⏳ Wait for green...';
+            timingStatus.className = 'status';
+            document.querySelector('.interaction-area[data-cta="timing"]').classList.remove('completed');
+            stats.completed.delete('timing');
+            updateStats();
+
+            setTimeout(startTimingCycle, 1000);
+        }
+
+        function startTimingCycle() {
+            const delay = 1000 + Math.random() * 3000;
+            timingTimeout = setTimeout(() => {
+                timingReady = true;
+                timingTarget.textContent = '🟢 CLICK NOW!';
+                timingTarget.className = 'timing-target ready';
+                timingStatus.textContent = '🟢 Click now!';
+                timingStatus.className = 'status info';
+            }, delay);
+        }
+
+        timingTarget.addEventListener('click', () => {
+            if (timingCompleted) return;
+
+            if (timingReady) {
+                timingCompleted = true;
+                timingTarget.textContent = '✅ Verified!';
+                timingTarget.className = 'timing-target';
+                timingStatus.textContent = '✅ Perfect timing! Verified!';
+                timingStatus.className = 'status success';
+                document.querySelector('.interaction-area[data-cta="timing"]').classList.add('completed');
+                markComplete('timing');
+                clearTimeout(timingTimeout);
+            } else {
+                timingTarget.textContent = '❌ Too early!';
+                timingTarget.className = 'timing-target';
+                timingStatus.textContent = '❌ Too early! Wait for green.';
+                timingStatus.className = 'status error';
+                clearTimeout(timingTimeout);
+                setTimeout(() => {
+                    resetTiming();
+                }, 1500);
+            }
+        });
+
+        // Start timing puzzle
+        setTimeout(startTimingCycle, 1000);
+
+        // ============================================
+        // 9. AUDIO
+        // ============================================
+        const audioVerify = document.getElementById('audioVerify');
+        const audioStatus = document.getElementById('audioStatus');
+        let audioCompleted = false;
+
+        audioVerify.addEventListener('click', () => {
+            if (audioCompleted) return;
+
+            audioCompleted = true;
+            audioVerify.textContent = '✅ Verified!';
+            audioVerify.classList.remove('recording');
+            audioStatus.textContent = '✅ Audio/Tap verified!';
+            audioStatus.className = 'status success';
+            document.querySelector('.interaction-area[data-cta="audio"]').classList.add('completed');
+            markComplete('audio');
+
+            // Check for microphone support
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                // Just for show - we already verified via click
+                console.log('Microphone available for additional verification');
+            }
+        });
+
+        // ============================================
+        // 10. KEYBOARD
+        // ============================================
+        const keyboardStatus = document.getElementById('keyboardStatus');
+        const keyboardStatus2 = document.getElementById('keyboardStatus2');
+        let keyboardCompleted = false;
+        let keysPressed = new Set();
+
+        document.addEventListener('keydown', (e) => {
+            if (keyboardCompleted) return;
+
+            keysPressed.add(e.key);
+
+            // Check for Ctrl+Alt+V or Cmd+Alt+V (Mac)
+            const isCtrl = e.ctrlKey || e.metaKey;
+            const isAlt = e.altKey;
+            const isV = e.key === 'v' || e.key === 'V';
+
+            if (isCtrl && isAlt && isV) {
+                keyboardCompleted = true;
+                keyboardStatus.textContent = '✅ Combo pressed!';
+                keyboardStatus.className = 'status success';
+                keyboardStatus2.textContent = '✅ Keyboard combo verified!';
+                keyboardStatus2.className = 'status success';
+                document.querySelector('.interaction-area[data-cta="keyboard"]').classList.add('completed');
+                markComplete('keyboard');
+                e.preventDefault();
+            } else {
+                const keyDisplay = [];
+                if (e.ctrlKey || e.metaKey) keyDisplay.push('Ctrl/Cmd');
+                if (e.altKey) keyDisplay.push('Alt');
+                if (isV) keyDisplay.push('V');
+                if (keyDisplay.length > 0) {
+                    keyboardStatus.textContent = `⏳ Pressed: ${keyDisplay.join(' + ')}`;
+                    keyboardStatus.className = 'status info';
+                }
+            }
+        });
+
+        // ============================================
+        // RESET ALL
+        // ============================================
+        document.getElementById('resetAll').addEventListener('click', () => {
+            // Reset all CTAs
+            stats.completed.clear();
+            updateStats();
+
+            // Drag & Drop
+            document.querySelector('.interaction-area[data-cta="dragdrop"]').classList.remove('completed');
+            dropTarget.classList.remove('dropped');
+            dropTarget.textContent = 'Drop here to verify';
+            dragStatus.textContent = 'Waiting for interaction...';
+            dragStatus.className = 'status';
+
+            // Slider
+            document.querySelector('.interaction-area[data-cta="slider"]').classList.remove('completed');
+            slider.value = 0;
+            sliderLabel.textContent = '0%';
+            sliderCompleted = false;
+            sliderStatus.textContent = 'Waiting for interaction...';
+            sliderStatus.className = 'status';
+
+            // Pattern
+            document.querySelector('.interaction-area[data-cta="pattern"]').classList.remove('completed');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            points = [];
+            patternCompleted = false;
+            patternStatus.textContent = 'Draw a circle to verify';
+            patternStatus.className = 'status';
+
+            // Grid
+            document.querySelector('.interaction-area[data-cta="clickgrid"]').classList.remove('completed');
+            gridItems.forEach(item => {
+                item.classList.remove('correct', 'clicked', 'wrong');
+            });
+            nextOrder = 1;
+            gridCompleted = false;
+            gridStatus.textContent = 'Click in order: 1 → 2 → 3';
+            gridStatus.className = 'status';
+
+            // Scroll
+            document.querySelector('.interaction-area[data-cta="scroll"]').classList.remove('completed');
+            scrollVerify.scrollTop = 0;
+            scrollCompleted = false;
+            scrollStatus.textContent = 'Scroll to the bottom';
+            scrollStatus.className = 'status';
+
+            // Hover
+            document.querySelector('.interaction-area[data-cta="hover"]').classList.remove('completed');
+            hoverReveal.classList.remove('completed', 'hovering');
+            hoverReveal.textContent = '👆 Hover here for 2 seconds';
+            hoverCompleted = false;
+            hoverStatus.textContent = 'Hover for 2 seconds...';
+            hoverStatus.className = 'status';
+            if (hoverTimer) {
+                clearInterval(hoverTimer);
+                hoverTimer = null;
+            }
+
+            // Tilt
+            document.querySelector('.interaction-area[data-cta="tilt"]').classList.remove('completed');
+            tiltBall.style.transform = 'translate(-50%, -50%)';
+            tiltCompleted = false;
+            tiltMoved = false;
+            tiltStatus.textContent = 'Move your device or mouse';
+            tiltStatus.className = 'status';
+
+            // Timing
+            document.querySelector('.interaction-area[data-cta="timing"]').classList.remove('completed');
+            clearTimeout(timingTimeout);
+            resetTiming();
+
+            // Audio
+            document.querySelector('.interaction-area[data-cta="audio"]').classList.remove('completed');
+            audioCompleted = false;
+            audioVerify.textContent = '🎤 Tap to verify';
+            audioVerify.classList.remove('recording');
+            audioStatus.textContent = 'Tap the button to verify';
+            audioStatus.className = 'status';
+
+            // Keyboard
+            document.querySelector('.interaction-area[data-cta="keyboard"]').classList.remove('completed');
+            keyboardCompleted = false;
+            keysPressed.clear();
+            keyboardStatus.textContent = 'Press the combo to verify';
+            keyboardStatus.className = 'status';
+            keyboardStatus2.textContent = 'Waiting for key combo...';
+            keyboardStatus2.className = 'status';
+        });
+
+        // Initial update
+        updateStats();
+
+        console.log('🎯 Bot Detection CTAs Demo loaded!');
+        console.log('📊 Try each CTA to collect interaction data.');
+        console.log('🔄 Click "Reset All" to start over.');
+    </script>
+</body>
+
+</html>
