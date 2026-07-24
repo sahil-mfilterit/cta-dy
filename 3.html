@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shake to Verify</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .shake-area {
+            width: 200px;
+            height: 200px;
+            margin: 20px auto;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #fcb69f 0%, #ffecd2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s ease;
+            border: 4px solid #fcb69f;
+        }
+        .shake-area.shaking {
+            animation: shakeAnim 0.1s infinite;
+        }
+        .shake-area .icon { font-size: 4rem; }
+        .shake-area .label { font-size: 1rem; margin-top: 8px; color: #666; }
+        @keyframes shakeAnim {
+            0% { transform: rotate(-3deg) scale(1.03); }
+            50% { transform: rotate(3deg) scale(0.97); }
+            100% { transform: rotate(-3deg) scale(1.03); }
+        }
+        .shake-meter {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        .shake-meter-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #fcb69f, #f5576c);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.05s ease;
+        }
+        .status-box {
+            padding: 12px;
+            border-radius: 12px;
+            margin: 15px 0;
+            background: #f8f9fa;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        .status-box.success { background: #d4edda; border: 2px solid #28a745; }
+        .status-box.info { background: #d1ecf1; border: 2px solid #17a2b8; }
+        .status-box .main { font-weight: 600; font-size: 1rem; }
+        .status-box .sub { font-size: 0.85rem; color: #666; }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fcb69f;
+            color: white;
+            touch-action: manipulation;
+            margin-top: 10px;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-secondary { background: #6c757d; }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+            font-size: 0.85rem;
+        }
+        .stats div { background: #f8f9fa; padding: 10px; border-radius: 8px; }
+        .stats .label { color: #999; font-size: 0.7rem; text-transform: uppercase; }
+        .stats .value { font-weight: 700; color: #333; margin-top: 3px; }
+        .device-warning {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #856404;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>📳 Shake to Verify</h2>
+        <p style="color: #666; margin-bottom: 10px; font-size: 0.9rem;">Shake your device vigorously</p>
+        
+        <div class="shake-area" id="shakeArea">
+            <span class="icon" id="shakeIcon">📱</span>
+            <span class="label" id="shakeLabel">Shake me!</span>
+        </div>
+        
+        <div class="shake-meter">
+            <div class="shake-meter-fill" id="shakeMeter"></div>
+        </div>
+        
+        <div class="status-box" id="statusBox">
+            <div class="main" id="mainStatus">🔄 Shake your device</div>
+            <div class="sub" id="subStatus">Shake it like you mean it!</div>
+        </div>
+        
+        <button class="btn" id="startBtn">▶ Start</button>
+        <button class="btn btn-secondary" id="resetBtn" style="margin-top: 8px;">🔄 Reset</button>
+        
+        <div class="stats">
+            <div><div class="label">Shakes</div><div class="value" id="shakeCount">0</div></div>
+            <div><div class="label">Max Intensity</div><div class="value" id="maxIntensity">0%</div></div>
+            <div><div class="label">Status</div><div class="value" id="verifyStatus">⏳</div></div>
+        </div>
+        
+        <div class="device-warning" id="deviceWarning" style="display:none;">
+            ⚠️ Device motion not available - using mouse/touch fallback
+        </div>
+    </div>
+    
+    <script>
+        const state = {
+            isActive: false,
+            isVerified: false,
+            shakeCount: 0,
+            maxIntensity: 0,
+            currentIntensity: 0,
+            lastShakeTime: 0,
+            shakeHistory: [],
+            startTime: null,
+            directionChanges: 0,
+            lastDirection: null,
+            useFallback: false
+        };
+        
+        const shakeArea = document.getElementById('shakeArea');
+        const shakeMeter = document.getElementById('shakeMeter');
+        const shakeIcon = document.getElementById('shakeIcon');
+        const shakeLabel = document.getElementById('shakeLabel');
+        const mainStatus = document.getElementById('mainStatus');
+        const subStatus = document.getElementById('subStatus');
+        const statusBox = document.getElementById('statusBox');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const deviceWarning = document.getElementById('deviceWarning');
+        
+        function updateUI() {
+            const percent = Math.min(state.currentIntensity * 100, 100);
+            shakeMeter.style.width = percent + '%';
+            document.getElementById('shakeCount').textContent = state.shakeCount;
+            document.getElementById('maxIntensity').textContent = Math.round(state.maxIntensity * 100) + '%';
+            document.getElementById('verifyStatus').textContent = state.isVerified ? '✅' : '⏳';
+            
+            if (state.currentIntensity > 0.5) {
+                shakeArea.classList.add('shaking');
+                shakeIcon.textContent = '📳';
+                shakeLabel.textContent = 'SHAKING!';
+            } else {
+                shakeArea.classList.remove('shaking');
+                shakeIcon.textContent = state.isVerified ? '✅' : '📱';
+                shakeLabel.textContent = state.isVerified ? 'Verified!' : 'Shake me!';
+            }
+        }
+        
+        function verifyUser() {
+            if (state.isVerified) return;
+            
+            // Need: at least 5 shakes, high intensity, some variation
+            if (state.shakeCount >= 5 && state.maxIntensity > 1.2) {
+                state.isVerified = true;
+                state.isActive = false;
+                mainStatus.textContent = '✅ Human Verified!';
+                subStatus.textContent = `🎉 ${state.shakeCount} shakes detected!`;
+                statusBox.className = 'status-box success';
+                shakeArea.style.borderColor = '#28a745';
+                startBtn.disabled = true;
+                startBtn.textContent = '✅ Verified';
+                document.getElementById('verifyStatus').textContent = '✅';
+                shakeIcon.textContent = '✅';
+                shakeArea.classList.remove('shaking');
+                
+                console.log('Shake Data:', {
+                    shakes: state.shakeCount,
+                    maxIntensity: state.maxIntensity,
+                    duration: Date.now() - state.startTime
+                });
+            }
+        }
+        
+        // ============================================
+        // DEVICE MOTION (works on HTTP!)
+        // ============================================
+        function setupDeviceMotion() {
+            if (window.DeviceMotionEvent) {
+                window.addEventListener('devicemotion', (e) => {
+                    if (!state.isActive || state.isVerified) return;
+                    
+                    const accel = e.accelerationIncludingGravity || e.acceleration;
+                    if (!accel) return;
+                    
+                    const x = accel.x || 0;
+                    const y = accel.y || 0;
+                    const z = accel.z || 0;
+                    const intensity = Math.sqrt(x*x + y*y + z*z) / 9.8;
+                    
+                    state.currentIntensity = Math.min(intensity / 2, 1);
+                    state.maxIntensity = Math.max(state.maxIntensity, intensity);
+                    
+                    // Detect shake (spike in intensity)
+                    if (intensity > 1.5) {
+                        const now = Date.now();
+                        if (now - state.lastShakeTime > 100) { // Debounce
+                            state.shakeCount++;
+                            state.lastShakeTime = now;
+                            
+                            // Haptic feedback
+                            if (navigator.vibrate) {
+                                navigator.vibrate(15);
+                            }
+                            
+                            mainStatus.textContent = `📳 Shake #${state.shakeCount}`;
+                            statusBox.className = 'status-box info';
+                        }
+                    }
+                    
+                    updateUI();
+                    verifyUser();
+                }, true);
+                
+                deviceWarning.style.display = 'none';
+            } else {
+                // Fallback
+                deviceWarning.style.display = 'block';
+                state.useFallback = true;
+                setupFallback();
+            }
+        }
+        
+        // ============================================
+        // FALLBACK: Touch/Mouse based shake
+        // ============================================
+        function setupFallback() {
+            let touchStart = { x: 0, y: 0 };
+            let touchMoves = 0;
+            
+            shakeArea.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                if (touch) {
+                    touchStart.x = touch.clientX;
+                    touchStart.y = touch.clientY;
+                }
+            }, { passive: true });
+            
+            shakeArea.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (!state.isActive || state.isVerified) return;
+                
+                const touch = e.touches[0];
+                if (!touch) return;
+                
+                const dx = touch.clientX - touchStart.x;
+                const dy = touch.clientY - touchStart.y;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+                
+                if (distance > 30) {
+                    state.shakeCount++;
+                    state.currentIntensity = Math.min(distance / 200, 1);
+                    state.maxIntensity = Math.max(state.maxIntensity, state.currentIntensity);
+                    touchStart.x = touch.clientX;
+                    touchStart.y = touch.clientY;
+                    touchMoves++;
+                    
+                    if (navigator.vibrate) {
+                        navigator.vibrate(10);
+                    }
+                    
+                    mainStatus.textContent = `📳 Shake #${state.shakeCount}`;
+                    statusBox.className = 'status-box info';
+                    updateUI();
+                    verifyUser();
+                }
+            }, { passive: false });
+            
+            // Mouse fallback for desktop
+            let mousePos = { x: 0, y: 0 };
+            shakeArea.addEventListener('mousedown', (e) => {
+                mousePos.x = e.clientX;
+                mousePos.y = e.clientY;
+            });
+            
+            shakeArea.addEventListener('mousemove', (e) => {
+                if (e.buttons === 0) return;
+                if (!state.isActive || state.isVerified) return;
+                
+                const dx = e.clientX - mousePos.x;
+                const dy = e.clientY - mousePos.y;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+                
+                if (distance > 30) {
+                    state.shakeCount++;
+                    state.currentIntensity = Math.min(distance / 200, 1);
+                    state.maxIntensity = Math.max(state.maxIntensity, state.currentIntensity);
+                    mousePos.x = e.clientX;
+                    mousePos.y = e.clientY;
+                    
+                    mainStatus.textContent = `📳 Shake #${state.shakeCount}`;
+                    statusBox.className = 'status-box info';
+                    updateUI();
+                    verifyUser();
+                }
+            });
+        }
+        
+        // ============================================
+        // CONTROLS
+        // ============================================
+        startBtn.addEventListener('click', () => {
+            if (state.isVerified) return;
+            state.isActive = true;
+            state.shakeCount = 0;
+            state.maxIntensity = 0;
+            state.currentIntensity = 0;
+            state.startTime = Date.now();
+            state.shakeHistory = [];
+            
+            mainStatus.textContent = '📳 Shake your device!';
+            subStatus.textContent = 'Shake it like you mean it!';
+            statusBox.className = 'status-box info';
+            startBtn.disabled = true;
+            startBtn.textContent = '⏳ Detecting...';
+            shakeArea.style.borderColor = '#fcb69f';
+            document.getElementById('verifyStatus').textContent = '⏳';
+            updateUI();
+        });
+        
+        resetBtn.addEventListener('click', () => {
+            state.isActive = false;
+            state.isVerified = false;
+            state.shakeCount = 0;
+            state.maxIntensity = 0;
+            state.currentIntensity = 0;
+            state.shakeHistory = [];
+            state.startTime = null;
+            
+            mainStatus.textContent = '🔄 Shake your device';
+            subStatus.textContent = 'Shake it like you mean it!';
+            statusBox.className = 'status-box';
+            startBtn.disabled = false;
+            startBtn.textContent = '▶ Start';
+            shakeArea.style.borderColor = '#fcb69f';
+            shakeArea.classList.remove('shaking');
+            shakeIcon.textContent = '📱';
+            shakeLabel.textContent = 'Shake me!';
+            document.getElementById('verifyStatus').textContent = '⏳';
+            updateUI();
+        });
+        
+        // Init
+        setupDeviceMotion();
+        updateUI();
+    </script>
+</body>
+</html>
