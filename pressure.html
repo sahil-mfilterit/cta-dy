@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pressure API Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        h2 { color: #333; margin-bottom: 10px; }
+        .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 20px; }
+        .test-area {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            touch-action: none;
+            user-select: none;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .test-area:active { transform: scale(0.98); }
+        .test-area .emoji { font-size: 3rem; margin-bottom: 10px; }
+        .pressure-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        .pressure-fill {
+            height: 100%;
+            background: white;
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.05s ease;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .info-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .info-item .label { font-size: 0.7rem; color: #999; text-transform: uppercase; }
+        .info-item .value { font-size: 1.1rem; font-weight: 600; color: #333; margin-top: 4px; }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: 500;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .status.warning { background: #fff3cd; color: #856404; }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: #667eea;
+            color: white;
+            margin-top: 15px;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-secondary { background: #6c757d; }
+        .protocol-info {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 15px;
+            text-align: center;
+        }
+        .protocol-info strong { color: #333; }
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge.secure { background: #d4edda; color: #155724; }
+        .badge.insecure { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🔬 Pressure API Test</h2>
+        <p class="subtitle">Touch/click the colored area to test pressure sensitivity</p>
+        
+        <div class="protocol-info" id="protocolInfo">
+            🔒 Checking connection security...
+        </div>
+        
+        <div class="test-area" id="testArea">
+            <span class="emoji" id="testEmoji">👆</span>
+            <span id="testStatus">Touch or click here</span>
+            <div class="pressure-bar">
+                <div class="pressure-fill" id="pressureFill"></div>
+            </div>
+        </div>
+        
+        <div class="status" id="statusMessage">
+            ⏳ Waiting for interaction...
+        </div>
+        
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="label">Pressure Value</div>
+                <div class="value" id="pressureValue">0%</div>
+            </div>
+            <div class="info-item">
+                <div class="label">API Status</div>
+                <div class="value" id="apiStatus">❌</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Touch Events</div>
+                <div class="value" id="touchCount">0</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Max Pressure</div>
+                <div class="value" id="maxPressure">0%</div>
+            </div>
+        </div>
+        
+        <button class="btn" id="resetBtn">🔄 Reset Test</button>
+        
+        <div style="margin-top: 15px; font-size: 0.8rem; color: #999; text-align: center;">
+            <span id="protocolStatus"></span>
+        </div>
+    </div>
+    
+    <script>
+        const testArea = document.getElementById('testArea');
+        const pressureFill = document.getElementById('pressureFill');
+        const testEmoji = document.getElementById('testEmoji');
+        const testStatus = document.getElementById('testStatus');
+        const statusMessage = document.getElementById('statusMessage');
+        const pressureValue = document.getElementById('pressureValue');
+        const apiStatus = document.getElementById('apiStatus');
+        const touchCount = document.getElementById('touchCount');
+        const maxPressure = document.getElementById('maxPressure');
+        const resetBtn = document.getElementById('resetBtn');
+        const protocolInfo = document.getElementById('protocolInfo');
+        const protocolStatus = document.getElementById('protocolStatus');
+        
+        let state = {
+            touchCount: 0,
+            maxPressure: 0,
+            currentPressure: 0,
+            isActive: false,
+            apiAvailable: false
+        };
+        
+        // ============================================
+        // CHECK PROTOCOL
+        // ============================================
+        function checkProtocol() {
+            const isSecure = window.location.protocol === 'https:' || 
+                           window.location.hostname === 'localhost' ||
+                           window.location.hostname === '127.0.0.1';
+            
+            const protocolText = isSecure ? '✅ HTTPS / Secure' : '❌ HTTP (Insecure)';
+            const badge = isSecure ? 
+                '<span class="badge secure">✅ Secure</span>' : 
+                '<span class="badge insecure">❌ Insecure</span>';
+            
+            protocolInfo.innerHTML = `
+                🔒 Protocol: <strong>${window.location.protocol}</strong> 
+                ${badge}
+                <br><small style="color: #999;">${isSecure ? '✅ Pressure API MAY work' : '❌ Pressure API WILL NOT work'}</small>
+            `;
+            
+            protocolStatus.textContent = isSecure ? 
+                '✅ Secure context - API may be available' : 
+                '❌ Insecure context - API blocked';
+            
+            return isSecure;
+        }
+        
+        const isSecure = checkProtocol();
+        
+        // ============================================
+        // PRESSURE API DETECTION
+        // ============================================
+        function testPressureAPI() {
+            // Check if Pressure API is available
+            if ('Pressure' in window) {
+                apiStatus.textContent = '✅ Available';
+                state.apiAvailable = true;
+                statusMessage.textContent = '✅ Pressure API is available!';
+                statusMessage.className = 'status success';
+                
+                // Try to use it
+                try {
+                    const pressureObserver = new PressureObserver((records) => {
+                        for (const record of records) {
+                            if (record.state === 'triggered') {
+                                const pressure = record.pressure || 0;
+                                state.currentPressure = pressure;
+                                updateUI(pressure);
+                            }
+                        }
+                    });
+                    
+                    pressureObserver.observe('touch');
+                    console.log('✅ Pressure Observer started');
+                } catch (e) {
+                    console.log('Pressure Observer error:', e);
+                }
+            } else {
+                apiStatus.textContent = '❌ Not available';
+                statusMessage.textContent = '⚠️ Pressure API not available - falling back to touch events';
+                statusMessage.className = 'status warning';
+                
+                // Check if it's because of HTTP
+                if (!isSecure) {
+                    statusMessage.textContent = '❌ Pressure API blocked - HTTPS required!';
+                    statusMessage.className = 'status error';
+                }
+            }
+        }
+        
+        // ============================================
+        // TOUCH EVENTS (works everywhere)
+        // ============================================
+        testArea.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            if (!touch) return;
+            
+            state.touchCount++;
+            state.isActive = true;
+            testEmoji.textContent = '🫸';
+            testStatus.textContent = 'Touching...';
+            statusMessage.textContent = '🔄 Touch detected!';
+            statusMessage.className = 'status info';
+            
+            // Get pressure from touch (iOS only)
+            let pressure = touch.force || 0;
+            state.currentPressure = pressure;
+            
+            if (pressure > 0) {
+                // Force is available (iOS)
+                statusMessage.textContent = `📊 Force detected: ${Math.round(pressure * 100)}%`;
+                state.apiAvailable = true;
+                apiStatus.textContent = '✅ Force available';
+            }
+            
+            updateUI(pressure);
+            updateStats();
+        }, { passive: false });
+        
+        testArea.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!state.isActive) return;
+            
+            const touch = e.touches[0];
+            if (!touch) return;
+            
+            let pressure = touch.force || 0;
+            
+            // Alternative: estimate pressure from touch area
+            if (pressure === 0 && touch.radiusX) {
+                const area = touch.radiusX * (touch.radiusY || touch.radiusX);
+                pressure = Math.min(area / 100, 1);
+            }
+            
+            state.currentPressure = pressure;
+            updateUI(pressure);
+            updateStats();
+            
+            testEmoji.textContent = pressure > 0.3 ? '🫸' : '👆';
+            testStatus.textContent = `Pressure: ${Math.round(pressure * 100)}%`;
+        }, { passive: false });
+        
+        testArea.addEventListener('touchend', (e) => {
+            state.isActive = false;
+            state.currentPressure = 0;
+            testEmoji.textContent = '👆';
+            testStatus.textContent = 'Touch ended';
+            updateUI(0);
+            statusMessage.textContent = '⏳ Touch ended - tap again';
+            statusMessage.className = 'status info';
+        }, { passive: false });
+        
+        // ============================================
+        // MOUSE EVENTS (fallback with simulation)
+        // ============================================
+        let mouseDown = false;
+        
+        testArea.addEventListener('mousedown', (e) => {
+            mouseDown = true;
+            state.isActive = true;
+            state.touchCount++;
+            testEmoji.textContent = '🖱️';
+            testStatus.textContent = 'Clicking...';
+            
+            // Simulate pressure from button press
+            let pressure = 0.3 + Math.random() * 0.3;
+            state.currentPressure = pressure;
+            updateUI(pressure);
+            updateStats();
+            
+            statusMessage.textContent = '🖱️ Mouse click detected (simulated pressure)';
+            statusMessage.className = 'status info';
+        });
+        
+        testArea.addEventListener('mousemove', (e) => {
+            if (!mouseDown) return;
+            
+            // Simulate pressure based on mouse Y position in the area
+            const rect = testArea.getBoundingClientRect();
+            const yPos = (e.clientY - rect.top) / rect.height;
+            let pressure = Math.max(0, Math.min(1 - yPos * 0.8, 1));
+            pressure = pressure * 0.5 + 0.3; // Range: 0.3 to 0.8
+            
+            state.currentPressure = pressure;
+            updateUI(pressure);
+            updateStats();
+            
+            testStatus.textContent = `Pressure: ${Math.round(pressure * 100)}%`;
+        });
+        
+        testArea.addEventListener('mouseup', () => {
+            mouseDown = false;
+            state.isActive = false;
+            state.currentPressure = 0;
+            updateUI(0);
+            testEmoji.textContent = '👆';
+            testStatus.textContent = 'Click to test';
+            statusMessage.textContent = '⏳ Click again to test pressure';
+            statusMessage.className = 'status info';
+        });
+        
+        testArea.addEventListener('mouseleave', () => {
+            mouseDown = false;
+            if (!state.isActive) return;
+            state.isActive = false;
+            state.currentPressure = 0;
+            updateUI(0);
+        });
+        
+        // ============================================
+        // UI UPDATE FUNCTIONS
+        // ============================================
+        function updateUI(pressure) {
+            const percent = Math.round(pressure * 100);
+            pressureFill.style.width = percent + '%';
+            pressureValue.textContent = percent + '%';
+            
+            // Change color based on pressure
+            const hue = 240 - (percent / 100 * 120);
+            testArea.style.background = `linear-gradient(135deg, hsl(${hue}, 70%, 50%), hsl(${hue + 30}, 70%, 40%))`;
+            
+            if (pressure > 0.5) {
+                testEmoji.textContent = '🫸';
+                testArea.style.transform = 'scale(0.95)';
+            } else if (pressure > 0.2) {
+                testEmoji.textContent = '👆';
+                testArea.style.transform = 'scale(0.98)';
+            } else {
+                testEmoji.textContent = '👆';
+                testArea.style.transform = 'scale(1)';
+            }
+        }
+        
+        function updateStats() {
+            touchCount.textContent = state.touchCount;
+            state.maxPressure = Math.max(state.maxPressure, state.currentPressure);
+            maxPressure.textContent = Math.round(state.maxPressure * 100) + '%';
+        }
+        
+        // ============================================
+        // RESET
+        // ============================================
+        resetBtn.addEventListener('click', () => {
+            state.touchCount = 0;
+            state.maxPressure = 0;
+            state.currentPressure = 0;
+            state.isActive = false;
+            mouseDown = false;
+            
+            pressureFill.style.width = '0%';
+            pressureValue.textContent = '0%';
+            maxPressure.textContent = '0%';
+            touchCount.textContent = '0';
+            testEmoji.textContent = '👆';
+            testStatus.textContent = 'Touch or click here';
+            testArea.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+            testArea.style.transform = 'scale(1)';
+            statusMessage.textContent = '🔄 Reset - tap to test again';
+            statusMessage.className = 'status info';
+        });
+        
+        // ============================================
+        // INIT
+        // ============================================
+        console.log('🔬 Pressure API Test');
+        console.log('Protocol:', window.location.protocol);
+        console.log('Secure:', isSecure);
+        console.log('Pressure API:', 'Pressure' in window);
+        console.log('Touch force support:', 'ontouchstart' in window);
+        
+        testPressureAPI();
+        
+        // Show if touch is supported
+        if ('ontouchstart' in window) {
+            statusMessage.textContent = '📱 Touch supported - tap the colored area';
+            statusMessage.className = 'status info';
+        } else {
+            statusMessage.textContent = '🖥️ Desktop mode - click to simulate pressure';
+            statusMessage.className = 'status info';
+        }
+        
+        console.log('✅ Test ready!');
+    </script>
+</body>
+</html>
