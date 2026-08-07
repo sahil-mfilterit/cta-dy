@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Environment Detection</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, sans-serif; background: #0a0e1a; color: #e0e6f0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { text-align: center; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; }
+        .btn { padding: 12px 30px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #667eea, #764ba2); color: white; margin: 10px auto; display: block; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin: 20px 0; }
+        .card { background: #111827; border-radius: 12px; padding: 20px; border: 1px solid #1f2937; }
+        .card-title { font-weight: 600; margin-bottom: 15px; font-size: 16px; }
+        .metric { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1f2937; font-size: 14px; }
+        .metric-label { color: #9ca3af; }
+        .metric-value { font-family: monospace; font-weight: 600; }
+        .result-card { background: #111827; border-radius: 12px; padding: 25px; margin-top: 20px; border: 2px solid #1f2937; }
+        .verdict { font-size: 24px; font-weight: 700; text-align: center; }
+        .verdict.ec2 { color: #f87171; }
+        .verdict.mobile { color: #60a5fa; }
+        .verdict.local { color: #34d399; }
+        .verdict.unknown { color: #fbbf24; }
+        .progress-bar { height: 8px; background: #1f2937; border-radius: 4px; margin: 10px 0; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); transition: width 0.5s; }
+        .hidden { display: none; }
+        .status { text-align: center; color: #8892b0; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔬 Environment Detection</h1>
+        <button class="btn" id="runBtn" onclick="runAll()">🚀 Run Detection</button>
+        <div class="status" id="status">Click the button to start</div>
+        <div class="grid" id="grid">
+            <div class="card"><div class="card-title">🔄 Event Loop</div><div id="elMetrics"></div></div>
+            <div class="card"><div class="card-title">🗑️ GC</div><div id="gcMetrics"></div></div>
+            <div class="card"><div class="card-title">🌐 Network</div><div id="netMetrics"></div></div>
+            <div class="card"><div class="card-title">⚡ CPU</div><div id="cpuMetrics"></div></div>
+            <div class="card"><div class="card-title">🎮 WebGL</div><div id="webglMetrics"></div></div>
+            <div class="card"><div class="card-title">🌡️ Thermal</div><div id="thermalMetrics"></div></div>
+        </div>
+        <div class="result-card hidden" id="resultCard">
+            <div class="verdict" id="verdict">—</div>
+            <div class="progress-bar"><div class="progress-fill" id="confidenceFill" style="width: 0%"></div></div>
+            <div style="text-align:center;color:#9ca3af;margin-top:5px;">Confidence: <span id="confidenceText">0%</span></div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // MAIN FUNCTION: Run all tests
+        // ============================================================
+        async function runAll() {
+            const btn = document.getElementById('runBtn');
+            const status = document.getElementById('status');
+            btn.disabled = true;
+            btn.textContent = '⏳ Running...';
+            status.textContent = '⏳ Running comprehensive detection...';
+            
+            try {
+                const results = await runTests();
+                displayResults(results);
+                status.textContent = '✅ Detection complete!';
+            } catch (e) {
+                status.textContent = '❌ Error: ' + e.message;
+                console.error(e);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Run Again';
+            }
+        }
+
+        // ============================================================
+        // UTILITY FUNCTIONS
+        // ============================================================
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+        
+        /**
+         * Calculate Standard Deviation - measures how spread out values are
+         * Higher = more jitter/noise = more variable performance
+         * Used for: Event Loop, Network, CPU tests
+         */
+        function calcStdDev(arr) {
+            const mean = arr.reduce((a,b) => a+b, 0) / arr.length;
+            return Math.sqrt(arr.reduce((a,b) => a + Math.pow(b-mean, 2), 0) / arr.length);
+        }
+
+        /**
+         * Update the UI with test results
+         */
+        function updateMetrics(containerId, metrics) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = Object.entries(metrics).map(([k, v]) => 
+                '<div class="metric"><span class="metric-label">' + k + '</span><span class="metric-value">' + v + '</span></div>'
+            ).join('');
+        }
+
+        // ============================================================
+        // 1. EVENT LOOP SCHEDULING TEST
+        // 
+        // WHAT IT MEASURES: How the JavaScript scheduler behaves
+        // EC2 SIGNATURE: High StdDev (>0.15ms) and/or Sawtooth (>2.0x)
+        // MOBILE SIGNATURE: Lower StdDev, irregular patterns
+        // 
+        // WHY IT WORKS: Hypervisor preemption causes regular scheduling
+        // interruptions that create a "sawtooth" pattern
+        // ============================================================
+        async function testEventLoop() {
+            const times = [];
+            // Run 15 batches of 100 microtasks
+            for (let i = 0; i < 15; i++) {
+                const start = performance.now();
+                for (let j = 0; j < 100; j++) await Promise.resolve();
+                times.push(performance.now() - start);
+                await sleep(5);
+            }
+            const mean = times.reduce((a,b) => a+b, 0) / times.length;
+            const stdDev = calcStdDev(times);
+            
+            // Calculate sawtooth ratio (max spike vs average difference)
+            const diffs = [];
+            for (let i = 1; i < times.length; i++) {
+                diffs.push(Math.abs(times[i] - times[i-1]));
+            }
+            const sawtooth = Math.max(...diffs) / (diffs.reduce((a,b) => a+b, 0) / diffs.length);
+            
+            return { 
+                'Mean (ms)': mean.toFixed(2), 
+                'StdDev (ms)': stdDev.toFixed(2), 
+                'Sawtooth': sawtooth.toFixed(2) + 'x', 
+                'isEC2': stdDev > 0.15 || sawtooth > 2.0 
+            };
+        }
+
+        // ============================================================
+        // 2. GARBAGE COLLECTION TEST
+        // 
+        // WHAT IT MEASURES: Memory allocation and GC performance
+        // EC2 SIGNATURE: Major GC > 35ms (virtualized memory)
+        // MOBILE SIGNATURE: Major GC < 35ms (dedicated memory)
+        // 
+        // WHY IT WORKS: Virtualized memory has more overhead
+        // ============================================================
+        async function testGC() {
+            // Major GC: Allocate 50k objects with 100-element arrays
+            const start = performance.now();
+            const arr = [];
+            for (let i = 0; i < 50000; i++) {
+                arr.push({ data: new Array(100).fill(i) });
+            }
+            arr.length = 0; // Force GC
+            const major = performance.now() - start;
+            
+            // Minor GC: Allocate 10k small objects
+            const minorStart = performance.now();
+            for (let i = 0; i < 10000; i++) { 
+                const o = { x: i }; 
+            }
+            const minor = performance.now() - minorStart;
+            
+            return { 
+                'Major (ms)': major.toFixed(1), 
+                'Minor (ms)': minor.toFixed(1), 
+                'isEC2': major > 35 
+            };
+        }
+
+        // ============================================================
+        // 3. NETWORK STACK TEST
+        // 
+        // WHAT IT MEASURES: Network latency and stability
+        // EC2 SIGNATURE: Avg RTT < 100ms, Jitter < 20ms (datacenter)
+        // MOBILE SIGNATURE: Avg RTT > 100ms, Jitter > 30ms (cellular/WiFi)
+        // 
+        // WHY IT WORKS: Datacenter networks are stable, mobile networks
+        // have variable latency due to radio scheduling
+        // ============================================================
+        async function testNetwork() {
+            const urls = ['https://www.google.com', 'https://www.cloudflare.com', 'https://www.amazon.com'];
+            const all = [];
+            for (const url of urls) {
+                for (let i = 0; i < 2; i++) {
+                    try {
+                        const start = performance.now();
+                        await fetch(url + '?_=' + Math.random(), { cache: 'no-store' });
+                        all.push(performance.now() - start);
+                    } catch(e) { 
+                        all.push(1000); // Timeout = 1000ms
+                    }
+                }
+            }
+            const avg = all.reduce((a,b) => a+b, 0) / all.length;
+            const jitter = calcStdDev(all); // Variation in RTT
+            
+            return { 
+                'Avg RTT (ms)': avg.toFixed(0), 
+                'Jitter (ms)': jitter.toFixed(1), 
+                'isEC2': avg < 100 && jitter < 20 
+            };
+        }
+
+        // ============================================================
+        // 4. CPU JITTER TEST (MOST RELIABLE)
+        // 
+        // WHAT IT MEASURES: CPU consistency using IQR outlier detection
+        // EC2 SIGNATURE: Outliers > 0.5% (hypervisor steal time)
+        // MOBILE SIGNATURE: Outliers < 0.5% (dedicated CPU)
+        // 
+        // WHY IT WORKS: Hypervisor interrupts cause occasional CPU
+        // stalls that show up as outliers in timing measurements
+        // ============================================================
+        async function testCPU() {
+            const times = [];
+            
+            // Run 500 iterations of CPU-intensive work
+            for (let i = 0; i < 500; i++) {
+                const start = performance.now();
+                let x = 0;
+                // Heavy crypto-style operations
+                for (let j = 0; j < 2000; j++) {
+                    x += Math.sqrt(j) * Math.sin(j);
+                    x = x ^ (x << 13) ^ (x >> 17);
+                }
+                times.push(performance.now() - start);
+            }
+            
+            // Find outliers using IQR (Interquartile Range) method
+            const sorted = [...times].sort((a,b) => a-b);
+            const q1 = sorted[125];  // 25th percentile
+            const q3 = sorted[375];  // 75th percentile
+            const iqr = q3 - q1;
+            const median = sorted[250];
+            
+            // Any value > 3*IQR from median is an outlier
+            const outliers = times.filter(t => Math.abs(t - median) > 3 * iqr);
+            
+            return { 
+                'Outliers %': ((outliers.length / times.length) * 100).toFixed(2), 
+                'IQR (ms)': iqr.toFixed(2), 
+                'isEC2': outliers.length / times.length > 0.005 
+            };
+        }
+
+        // ============================================================
+        // 5. WEBGL PIPELINE TEST
+        // 
+        // WHAT IT MEASURES: GPU readPixels performance
+        // EC2 SIGNATURE: ReadPixels > 20ms (software rendering)
+        // MOBILE SIGNATURE: ReadPixels < 20ms (hardware GPU)
+        // 
+        // WHY IT WORKS: EC2 often uses software rasterizers like
+        // SwiftShader which are slower than hardware GPUs
+        // ============================================================
+        async function testWebGL() {
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (!gl) return { 'Available': 'No', 'isEC2': false };
+                
+                // Compile a simple shader
+                const vs = gl.createShader(gl.VERTEX_SHADER);
+                gl.shaderSource(vs, 'attribute vec2 pos; void main() { gl_Position = vec4(pos, 0, 1); }');
+                gl.compileShader(vs);
+                
+                const fs = gl.createShader(gl.FRAGMENT_SHADER);
+                gl.shaderSource(fs, 'void main() { gl_FragColor = vec4(1,0,0,1); }');
+                gl.compileShader(fs);
+                
+                const prog = gl.createProgram();
+                gl.attachShader(prog, vs); gl.attachShader(prog, fs);
+                gl.linkProgram(prog); gl.useProgram(prog);
+                
+                // Measure readPixels time (GPU -> CPU transfer)
+                const start = performance.now();
+                gl.clearColor(0.5,0.5,0.5,1);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                const pixels = new Uint8Array(256 * 256 * 4);
+                gl.readPixels(0, 0, 256, 256, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+                const time = performance.now() - start;
+                
+                return { 
+                    'ReadPixels (ms)': time.toFixed(1), 
+                    'Available': 'Yes', 
+                    'isEC2': time > 20 
+                };
+            } catch(e) {
+                return { 'Available': 'Error', 'isEC2': false };
+            }
+        }
+
+        // ============================================================
+        // 6. THERMAL THROTTLING TEST
+        // 
+        // WHAT IT MEASURES: Performance degradation over time
+        // EC2 SIGNATURE: Degradation < 1% (stable cooling)
+        // MOBILE SIGNATURE: Degradation > 3% (thermal throttling)
+        // 
+        // WHY IT WORKS: Mobile devices have passive cooling and
+        // aggressively throttle CPU to prevent overheating
+        // ============================================================
+        async function testThermal() {
+            const times = [];
+            
+            // Run 15 iterations of heavy work
+            for (let i = 0; i < 15; i++) {
+                const start = performance.now();
+                let x = 0;
+                for (let j = 0; j < 30000; j++) {
+                    x += Math.sin(j) * Math.cos(j * 0.1);
+                    x = Math.pow(x % 1000, 1.1);
+                }
+                times.push(performance.now() - start);
+                await sleep(30);
+            }
+            
+            // Compare first half vs second half
+            const first = times.slice(0, 7).reduce((a,b) => a+b, 0) / 7;
+            const second = times.slice(7).reduce((a,b) => a+b, 0) / 8;
+            const deg = (first - second) / first;  // Performance drop
+            
+            // Check battery API (spoofable, but included for context)
+            let battery = 'Not Available';
+            try {
+                if (navigator.getBattery) {
+                    const b = await navigator.getBattery();
+                    battery = 'Available' + (b.charging ? ' (Charging)' : ' (Battery)');
+                }
+            } catch(e) {}
+            
+            return { 
+                'Degradation %': (deg * 100).toFixed(1), 
+                'Battery': battery, 
+                'isEC2': deg < 0.01 
+            };
+        }
+
+        // ============================================================
+        // RUN ALL TESTS
+        // ============================================================
+        async function runTests() {
+            const [el, gc, net, cpu, webgl, thermal] = await Promise.all([
+                testEventLoop(), 
+                testGC(), 
+                testNetwork(), 
+                testCPU(), 
+                testWebGL(), 
+                testThermal()
+            ]);
+            return { eventLoop: el, gc, network: net, cpu, webgl, thermal };
+        }
+
+        // ============================================================
+        // DISPLAY RESULTS WITH CONFIDENCE SCORING
+        // ============================================================
+        function displayResults(results) {
+            updateMetrics('elMetrics', results.eventLoop);
+            updateMetrics('gcMetrics', results.gc);
+            updateMetrics('netMetrics', results.network);
+            updateMetrics('cpuMetrics', results.cpu);
+            updateMetrics('webglMetrics', results.webgl);
+            updateMetrics('thermalMetrics', results.thermal);
+            
+            // Calculate scores
+            let ec2Score = 0, mobileScore = 0, localScore = 0;
+            
+            // EC2 signals (high values indicate EC2)
+            if (results.eventLoop.isEC2) ec2Score += 25;
+            if (results.gc.isEC2) ec2Score += 20;
+            if (results.network.isEC2) ec2Score += 20;
+            if (results.cpu.isEC2) ec2Score += 20;
+            if (results.thermal.isEC2) ec2Score += 15;
+            
+            // Mobile signals
+            if (results.thermal.Battery.includes('Available')) mobileScore += 40;
+            if (parseFloat(results.thermal['Degradation %']) > 3) mobileScore += 30;
+            if (parseFloat(results.eventLoop.Sawtooth) > 2.5) mobileScore += 30;
+            
+            // Local machine signals
+            if (!results.eventLoop.isEC2 && !results.cpu.isEC2 && !results.network.isEC2) localScore += 30;
+            if (parseFloat(results.eventLoop['StdDev (ms)']) < 0.1) localScore += 30;
+            
+            const total = ec2Score + mobileScore + localScore;
+            const verdictEl = document.getElementById('verdict');
+            const confidence = Math.max(ec2Score, mobileScore, localScore);
+            
+            // Determine verdict
+            if (ec2Score > mobileScore && ec2Score > localScore) {
+                verdictEl.textContent = '🖥️ EC2 (Cloud)';
+                verdictEl.className = 'verdict ec2';
+            } else if (mobileScore > ec2Score && mobileScore > localScore) {
+                verdictEl.textContent = '📱 Mobile Device';
+                verdictEl.className = 'verdict mobile';
+            } else if (localScore > ec2Score && localScore > mobileScore) {
+                verdictEl.textContent = '💻 Local Machine';
+                verdictEl.className = 'verdict local';
+            } else {
+                verdictEl.textContent = '⚠️ Mixed / Inconclusive';
+                verdictEl.className = 'verdict unknown';
+            }
+            
+            document.getElementById('confidenceText').textContent = (confidence / Math.max(total, 1) * 100).toFixed(1) + '%';
+            document.getElementById('confidenceFill').style.width = (confidence / Math.max(total, 1) * 100) + '%';
+            document.getElementById('resultCard').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
