@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPU Jitter Detection Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 { margin-top: 0; color: #2c3e50; }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover { background: #2980b9; }
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #ecf0f1;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        .real { background: #d4edda; color: #155724; }
+        .suspicious { background: #fff3cd; color: #856404; }
+        .emulated { background: #f8d7da; color: #721c24; }
+        .progress {
+            margin-top: 15px;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            display: none;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #3498db;
+            border-radius: 10px;
+            transition: width 0.3s;
+            width: 0%;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .metric-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        @media (max-width: 600px) {
+            .metrics { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖥️ CPU Jitter Detection</h1>
+        <p>This test measures CPU execution timing variations to detect if the browser is running in an automated or virtualized environment.</p>
+        
+        <button id="runTest">▶ Run Jitter Test</button>
+        <div class="progress" id="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        
+        <div class="metrics">
+            <div class="metric-box">
+                <div class="metric-value" id="meanValue">-</div>
+                <div class="metric-label">Mean Time (µs)</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-value" id="stdDevValue">-</div>
+                <div class="metric-label">Std Deviation (µs)</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-value" id="jitterValue">-</div>
+                <div class="metric-label">Jitter Score</div>
+            </div>
+        </div>
+        
+        <div id="statusMessage" class="status"></div>
+        <div class="results" id="results">Results will appear here...</div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // Configuration
+            const ITERATIONS = 200;          // Number of measurement cycles
+            const WARMUP_ITERATIONS = 20;    // Warmup cycles to stabilize JIT
+            const OPERATIONS_PER_RUN = 10000; // Operations per timing measurement
+            
+            // DOM elements
+            const runBtn = document.getElementById('runTest');
+            const progress = document.getElementById('progress');
+            const progressBar = document.getElementById('progressBar');
+            const resultsDiv = document.getElementById('results');
+            const statusDiv = document.getElementById('statusMessage');
+            const meanValue = document.getElementById('meanValue');
+            const stdDevValue = document.getElementById('stdDevValue');
+            const jitterValue = document.getElementById('jitterValue');
+
+            // High-precision timer
+            function getTimestamp() {
+                if (typeof performance !== 'undefined' && performance.now) {
+                    return performance.now();
+                }
+                return Date.now();
+            }
+
+            // Baseline operation: simple math loop
+            function baselineOperation() {
+                let x = 0;
+                for (let i = 0; i < 1000; i++) {
+                    x += i * i;
+                }
+                return x;
+            }
+
+            // Differential operation: more complex, triggers more CPU work
+            function differentialOperation() {
+                let result = 0;
+                for (let i = 0; i < OPERATIONS_PER_RUN; i++) {
+                    // Mixed operations to stress CPU differently
+                    result += Math.sin(i) * Math.cos(i) + Math.sqrt(i + 1);
+                    result ^= (i << 2) | (i >> 1);
+                    result = (result * 1664525 + 1013904223) & 0xFFFFFFFF; // Simple PRNG
+                }
+                return result;
+            }
+
+            // WebAssembly implementation for more consistent timing
+            function createWasmModule() {
+                // Simple WASM module that performs a loop
+                const wasmCode = new Uint8Array([
+                    0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, // magic
+                    0x01, 0x07, 0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f, // type section
+                    0x03, 0x02, 0x01, 0x00, // function section
+                    0x07, 0x07, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00, // export section
+                    0x0a, 0x0c, 0x01, 0x0a, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a, 0x0b // code section
+                ]);
+                
+                try {
+                    const module = new WebAssembly.Module(wasmCode);
+                    const instance = new WebAssembly.Instance(module);
+                    return instance.exports.run;
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function runWasmOperation() {
+                const runFn = createWasmModule();
+                if (!runFn) return null;
+                
+                let result = 0;
+                for (let i = 0; i < OPERATIONS_PER_RUN; i++) {
+                    result = runFn(result, i);
+                }
+                return result;
+            }
+
+            // Measure execution time of a function
+            function measureTime(fn) {
+                const start = getTimestamp();
+                fn();
+                const end = getTimestamp();
+                return (end - start) * 1000; // Convert to microseconds
+            }
+
+            // Main test function
+            async function runJitterTest() {
+                // Reset UI
+                resultsDiv.textContent = 'Running test... Please wait.';
+                statusDiv.className = 'status';
+                statusDiv.textContent = '⏳ Testing in progress...';
+                runBtn.disabled = true;
+                progress.style.display = 'block';
+                progressBar.style.width = '0%';
+
+                try {
+                    // Warmup phase
+                    resultsDiv.textContent = 'Warming up...\n';
+                    for (let i = 0; i < WARMUP_ITERATIONS; i++) {
+                        baselineOperation();
+                        differentialOperation();
+                        progressBar.style.width = `${(i / WARMUP_ITERATIONS) * 20}%`;
+                    }
+
+                    // Test phase
+                    const times = [];
+                    const baselineTimes = [];
+                    const wasmTimes = [];
+
+                    resultsDiv.textContent = 'Running measurements...\n';
+                    
+                    for (let i = 0; i < ITERATIONS; i++) {
+                        // Measure baseline
+                        const baselineTime = measureTime(baselineOperation);
+                        baselineTimes.push(baselineTime);
+
+                        // Measure differential
+                        const diffTime = measureTime(differentialOperation);
+                        times.push(diffTime);
+
+                        // Try WASM if available
+                        const wasmTime = measureTime(() => {
+                            const fn = createWasmModule();
+                            if (fn) fn(0, 0);
+                        });
+                        if (wasmTime > 0) wasmTimes.push(wasmTime);
+
+                        // Update progress
+                        const progressPct = 20 + (i / ITERATIONS) * 80;
+                        progressBar.style.width = `${progressPct}%`;
+                        
+                        // Yield to UI occasionally
+                        if (i % 10 === 0) {
+                            await new Promise(resolve => setTimeout(resolve, 0));
+                        }
+                    }
+
+                    // Calculate statistics
+                    const stats = calculateStats(times);
+                    const baselineStats = calculateStats(baselineTimes);
+                    const wasmStats = wasmTimes.length > 0 ? calculateStats(wasmTimes) : null;
+
+                    // Calculate jitter metrics
+                    const relativeJitter = stats.stdDev / stats.mean;
+                    const baselineRatio = stats.mean / baselineStats.mean;
+                    
+                    // Classification logic
+                    let classification = '';
+                    let classificationClass = '';
+                    
+                    // Emulated/Virtualized environments typically have:
+                    // 1. Higher standard deviation (more jitter)
+                    // 2. Higher baseline ratio (overhead from virtualization)
+                    // 3. Different WASM performance characteristics
+                    
+                    const isSuspicious = (
+                        relativeJitter > 0.05 || // High relative jitter
+                        baselineRatio > 1.5 || // Significant overhead
+                        stats.stdDev > 500 // High absolute jitter
+                    );
+
+                    // More refined detection
+                    let score = 0;
+                    if (relativeJitter > 0.03) score += 1;
+                    if (relativeJitter > 0.05) score += 2;
+                    if (baselineRatio > 1.3) score += 1;
+                    if (baselineRatio > 1.8) score += 2;
+                    if (stats.stdDev > 300) score += 1;
+                    if (stats.stdDev > 600) score += 2;
+                    if (wasmStats && wasmStats.mean > stats.mean * 1.2) score += 1;
+
+                    if (score >= 4) {
+                        classification = '⚠️ EMULATED/VIRTUALIZED ENVIRONMENT DETECTED';
+                        classificationClass = 'emulated';
+                    } else if (score >= 2) {
+                        classification = '🔍 SUSPICIOUS - Potentially automated';
+                        classificationClass = 'suspicious';
+                    } else {
+                        classification = '✅ REAL HARDWARE - Likely legitimate user';
+                        classificationClass = 'real';
+                    }
+
+                    // Display results
+                    meanValue.textContent = stats.mean.toFixed(2);
+                    stdDevValue.textContent = stats.stdDev.toFixed(2);
+                    jitterValue.textContent = (relativeJitter * 100).toFixed(2) + '%';
+
+                    statusDiv.className = `status ${classificationClass}`;
+                    statusDiv.textContent = classification;
+
+                    // Detailed results
+                    let resultText = `=== CPU Jitter Analysis Results ===\n\n`;
+                    resultText += `Test Configuration:\n`;
+                    resultText += `  • Iterations: ${ITERATIONS}\n`;
+                    resultText += `  • Operations/run: ${OPERATIONS_PER_RUN}\n\n`;
+                    
+                    resultText += `Statistics (Differential Operation):\n`;
+                    resultText += `  • Mean: ${stats.mean.toFixed(2)} µs\n`;
+                    resultText += `  • Std Dev: ${stats.stdDev.toFixed(2)} µs\n`;
+                    resultText += `  • Min: ${stats.min.toFixed(2)} µs\n`;
+                    resultText += `  • Max: ${stats.max.toFixed(2)} µs\n`;
+                    resultText += `  • Relative Jitter: ${(relativeJitter * 100).toFixed(2)}%\n\n`;
+                    
+                    resultText += `Baseline Operation:\n`;
+                    resultText += `  • Mean: ${baselineStats.mean.toFixed(2)} µs\n`;
+                    resultText += `  • Baseline Ratio: ${baselineRatio.toFixed(2)}x\n\n`;
+                    
+                    if (wasmStats) {
+                        resultText += `WebAssembly:\n`;
+                        resultText += `  • Mean: ${wasmStats.mean.toFixed(2)} µs\n`;
+                        resultText += `  • Std Dev: ${wasmStats.stdDev.toFixed(2)} µs\n\n`;
+                    }
+                    
+                    resultText += `Detection Score: ${score}/7\n`;
+                    resultText += `Classification: ${classification}\n\n`;
+                    
+                    resultText += `Interpretation:\n`;
+                    resultText += `  • High relative jitter (>5%) suggests virtualization\n`;
+                    resultText += `  • High baseline ratio (>1.5x) suggests overhead\n`;
+                    resultText += `  • Real hardware typically shows consistent, low jitter\n\n`;
+                    
+                    resultText += `Raw times (first 20):\n`;
+                    times.slice(0, 20).forEach((t, i) => {
+                        resultText += `  ${i+1}: ${t.toFixed(2)} µs\n`;
+                    });
+                    if (times.length > 20) {
+                        resultText += `  ... (${times.length - 20} more)\n`;
+                    }
+
+                    resultsDiv.textContent = resultText;
+
+                } catch (error) {
+                    resultsDiv.textContent = `Error: ${error.message}`;
+                    statusDiv.className = 'status emulated';
+                    statusDiv.textContent = '❌ Test failed - check console for details';
+                    console.error(error);
+                } finally {
+                    runBtn.disabled = false;
+                    progress.style.display = 'none';
+                    progressBar.style.width = '0%';
+                }
+            }
+
+            // Calculate statistics from an array of numbers
+            function calculateStats(values) {
+                if (!values || values.length === 0) {
+                    return { mean: 0, stdDev: 0, min: 0, max: 0 };
+                }
+                
+                const n = values.length;
+                let sum = 0;
+                let min = Infinity;
+                let max = -Infinity;
+                
+                for (let i = 0; i < n; i++) {
+                    sum += values[i];
+                    if (values[i] < min) min = values[i];
+                    if (values[i] > max) max = values[i];
+                }
+                
+                const mean = sum / n;
+                
+                // Calculate standard deviation
+                let sqDiff = 0;
+                for (let i = 0; i < n; i++) {
+                    sqDiff += (values[i] - mean) ** 2;
+                }
+                const stdDev = Math.sqrt(sqDiff / n);
+                
+                return { mean, stdDev, min, max };
+            }
+
+            // Event listeners
+            runBtn.addEventListener('click', runJitterTest);
+
+            // Auto-run on load with a small delay
+            window.addEventListener('load', () => {
+                setTimeout(() => {
+                    // Uncomment to auto-run:
+                    // runJitterTest();
+                }, 500);
+            });
+
+        })();
+    </script>
+</body>
+</html>
