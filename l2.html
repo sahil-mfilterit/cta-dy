@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raw Data Collector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0e1a;
+            color: #e0e6f0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: #111827;
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid #1f2937;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            touch-action: manipulation;
+        }
+        .btn-run {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            margin-bottom: 12px;
+        }
+        .btn-run:active {
+            transform: scale(0.97);
+        }
+        .btn-run:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-copy {
+            background: #1f2937;
+            color: #9ca3af;
+            border: 1px solid #374151;
+        }
+        .btn-copy:active {
+            transform: scale(0.97);
+        }
+        .btn-copy.copied {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+        .status {
+            text-align: center;
+            padding: 10px;
+            margin: 12px 0;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #6b7280;
+            background: rgba(31, 41, 55, 0.3);
+            min-height: 40px;
+        }
+        .status.loading {
+            color: #60a5fa;
+        }
+        .status.done {
+            color: #34d399;
+        }
+        .status.error {
+            color: #f87171;
+        }
+        .raw-data {
+            background: #0a0e1a;
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 16px;
+            border: 1px solid #1f2937;
+            max-height: 500px;
+            overflow: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: #e5e7eb;
+            display: none;
+        }
+        .raw-data.show {
+            display: block;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 16px 0;
+        }
+        .metric-card {
+            background: rgba(31, 41, 55, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid #1f2937;
+        }
+        .metric-label {
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .metric-value {
+            font-size: 18px;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+            margin-top: 4px;
+            color: #e5e7eb;
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .hidden {
+            display: none !important;
+        }
+        @media (max-width: 600px) {
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Raw Data Collector</h1>
+        <p class="subtitle">Non-spoofable metrics only • Click Run to collect</p>
+
+        <button class="btn btn-run" id="runBtn" onclick="collectData()">
+            🚀 Run Collection
+        </button>
+
+        <button class="btn btn-copy hidden" id="copyBtn" onclick="copyData()">
+            📋 Copy JSON to Clipboard
+        </button>
+
+        <div class="status" id="status">Ready to collect data</div>
+
+        <div class="metrics-grid" id="metricsGrid">
+            <div class="metric-card">
+                <div class="metric-label">CPU Outliers</div>
+                <div class="metric-value" id="mCpuOutliers">—</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">CPU StdDev</div>
+                <div class="metric-value" id="mCpuStdDev">—</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">WebGL Time</div>
+                <div class="metric-value" id="mWebglTime">—</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">WebGL Scaling</div>
+                <div class="metric-value" id="mWebglScaling">—</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Thermal Degradation</div>
+                <div class="metric-value" id="mThermalDeg">—</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Network RTT</div>
+                <div class="metric-value" id="mNetRtt">—</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Network Jitter</div>
+                <div class="metric-value" id="mNetJitter">—</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Event Loop StdDev</div>
+                <div class="metric-value" id="mElStdDev">—</div>
+            </div>
+        </div>
+
+        <div class="raw-data" id="rawData"></div>
+    </div>
+
+    <script>
+        let collectedData = null;
+
+        // Utility functions
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        function calcStdDev(arr) {
+            if (arr.length === 0) return 0;
+            const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+            const variance = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / arr.length;
+            return Math.sqrt(variance);
+        }
+
+        function calcVariance(arr) {
+            if (arr.length === 0) return 0;
+            const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+            return arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / arr.length;
+        }
+
+        // ============================================
+        // 1. CPU Jitter
+        // ============================================
+        async function collectCPUJitter() {
+            const iterations = 1000;
+            const times = [];
+
+            for (let i = 0; i < iterations; i++) {
+                const start = performance.now();
+                let x = 0;
+                for (let j = 0; j < 3000; j++) {
+                    x += Math.sqrt(j) * Math.sin(j);
+                    x = x ^ (x << 13);
+                    x = x ^ (x >> 17);
+                    x = x ^ (x << 5);
+                    x = (x * 1664525 + 1013904223) & 0xFFFFFFFF;
+                }
+                times.push(performance.now() - start);
+            }
+
+            const sorted = [...times].sort((a, b) => a - b);
+            const n = sorted.length;
+            const q1 = sorted[Math.floor(n * 0.25)];
+            const q3 = sorted[Math.floor(n * 0.75)];
+            const iqr = q3 - q1;
+            const median = sorted[Math.floor(n / 2)];
+            const lowerBound = q1 - 3 * iqr;
+            const upperBound = q3 + 3 * iqr;
+            const outliers = times.filter(t => t < lowerBound || t > upperBound);
+            const outlierRatio = outliers.length / n;
+            const stdDev = calcStdDev(times);
+
+            return {
+                outlierRatio: parseFloat(outlierRatio.toFixed(6)),
+                stdDev: parseFloat(stdDev.toFixed(4)),
+                iqr: parseFloat(iqr.toFixed(4)),
+                sampleSize: n,
+                min: parseFloat(Math.min(...times).toFixed(4)),
+                max: parseFloat(Math.max(...times).toFixed(4)),
+                mean: parseFloat((times.reduce((a, b) => a + b, 0) / n).toFixed(4))
+            };
+        }
+
+        // ============================================
+        // 2. WebGL
+        // ============================================
+        async function collectWebGL() {
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+                if (!gl) {
+                    return { available: false };
+                }
+
+                const sizes = [64, 128, 256, 512];
+                const results = [];
+
+                for (const size of sizes) {
+                    canvas.width = size;
+                    canvas.height = size;
+                    gl.viewport(0, 0, size, size);
+
+                    const vs = gl.createShader(gl.VERTEX_SHADER);
+                    gl.shaderSource(vs, `
+                        attribute vec2 pos;
+                        void main() {
+                            gl_Position = vec4(pos, 0, 1);
+                        }
+                    `);
+                    gl.compileShader(vs);
+
+                    const fs = gl.createShader(gl.FRAGMENT_SHADER);
+                    gl.shaderSource(fs, `
+                        void main() {
+                            gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+                        }
+                    `);
+                    gl.compileShader(fs);
+
+                    const program = gl.createProgram();
+                    gl.attachShader(program, vs);
+                    gl.attachShader(program, fs);
+                    gl.linkProgram(program);
+                    gl.useProgram(program);
+
+                    const start = performance.now();
+                    gl.clearColor(0.5, 0.5, 0.5, 1.0);
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+
+                    const pixels = new Uint8Array(size * size * 4);
+                    gl.readPixels(0, 0, size, size, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+                    results.push(performance.now() - start);
+                }
+
+                const scalingFactor = results[3] / results[0];
+                const avgTime = results.reduce((a, b) => a + b, 0) / results.length;
+
+                return {
+                    available: true,
+                    times: results.map(t => parseFloat(t.toFixed(2))),
+                    avgTime: parseFloat(avgTime.toFixed(2)),
+                    scalingFactor: parseFloat(scalingFactor.toFixed(2)),
+                    renderer: gl.getParameter(gl.RENDERER) || 'Unknown',
+                    vendor: gl.getParameter(gl.VENDOR) || 'Unknown'
+                };
+
+            } catch (e) {
+                return { available: false, error: e.message };
+            }
+        }
+
+        // ============================================
+        // 3. Thermal
+        // ============================================
+        async function collectThermal() {
+            const runs = 20;
+            const times = [];
+
+            for (let run = 0; run < runs; run++) {
+                const start = performance.now();
+                let x = 0;
+                for (let i = 0; i < 50000; i++) {
+                    x += Math.sin(i) * Math.cos(i * 0.1);
+                    x = Math.pow(x % 1000, 1.1);
+                    x = (x * 1664525 + 1013904223) & 0xFFFFFFFF;
+                }
+                times.push(performance.now() - start);
+                await sleep(20);
+            }
+
+            const firstHalf = times.slice(0, Math.floor(runs / 2));
+            const secondHalf = times.slice(Math.floor(runs / 2));
+
+            const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+            const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+
+            const degradation = (avgFirst - avgSecond) / avgFirst;
+            const varFirst = calcVariance(firstHalf);
+            const varSecond = calcVariance(secondHalf);
+            const varianceGrowth = varSecond / (varFirst || 1);
+
+            return {
+                times: times.map(t => parseFloat(t.toFixed(2))),
+                avgFirst: parseFloat(avgFirst.toFixed(2)),
+                avgSecond: parseFloat(avgSecond.toFixed(2)),
+                degradation: parseFloat(degradation.toFixed(4)),
+                varianceGrowth: parseFloat(varianceGrowth.toFixed(4)),
+                stdDevFirst: parseFloat(calcStdDev(firstHalf).toFixed(4)),
+                stdDevSecond: parseFloat(calcStdDev(secondHalf).toFixed(4))
+            };
+        }
+
+        // ============================================
+        // 4. Network
+        // ============================================
+        async function collectNetwork() {
+            const endpoints = [
+                'https://www.google.com',
+                'https://www.cloudflare.com',
+                'https://www.amazon.com',
+                'https://www.microsoft.com'
+            ];
+
+            const allRTTs = [];
+
+            for (const url of endpoints) {
+                for (let i = 0; i < 3; i++) {
+                    try {
+                        const start = performance.now();
+                        await fetch(url + '?_=' + Math.random(), {
+                            cache: 'no-store',
+                            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+                        });
+                        allRTTs.push(performance.now() - start);
+                    } catch (e) {
+                        allRTTs.push(1000);
+                    }
+                }
+            }
+
+            const avgRTT = allRTTs.reduce((a, b) => a + b, 0) / allRTTs.length;
+            const stdDev = calcStdDev(allRTTs);
+
+            const jitterValues = [];
+            for (let i = 1; i < allRTTs.length; i++) {
+                jitterValues.push(Math.abs(allRTTs[i] - allRTTs[i - 1]));
+            }
+            const avgJitter = jitterValues.reduce((a, b) => a + b, 0) / (jitterValues.length || 1);
+            const lossRate = allRTTs.filter(r => r > 800).length / allRTTs.length;
+
+            return {
+                rtts: allRTTs.map(t => parseFloat(t.toFixed(0))),
+                avgRTT: parseFloat(avgRTT.toFixed(0)),
+                stdDev: parseFloat(stdDev.toFixed(1)),
+                avgJitter: parseFloat(avgJitter.toFixed(1)),
+                lossRate: parseFloat(lossRate.toFixed(4)),
+                minRTT: parseFloat(Math.min(...allRTTs).toFixed(0)),
+                maxRTT: parseFloat(Math.max(...allRTTs).toFixed(0))
+            };
+        }
+
+        // ============================================
+        // 5. Event Loop
+        // ============================================
+        async function collectEventLoop() {
+            const batchSize = 20;
+            const batchTimes = [];
+
+            for (let batch = 0; batch < 30; batch++) {
+                const batchStart = performance.now();
+                for (let i = 0; i < 100; i++) {
+                    await Promise.resolve();
+                }
+                batchTimes.push(performance.now() - batchStart);
+
+                const delayStart = performance.now();
+                while (performance.now() - delayStart < 2) {}
+            }
+
+            const mean = batchTimes.reduce((a, b) => a + b, 0) / batchTimes.length;
+            const stdDev = calcStdDev(batchTimes);
+
+            const diffs = [];
+            for (let i = 1; i < batchTimes.length; i++) {
+                diffs.push(Math.abs(batchTimes[i] - batchTimes[i - 1]));
+            }
+            const avgDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+            const maxDiff = Math.max(...diffs);
+            const sawtoothRatio = maxDiff / (avgDiff || 1);
+
+            // Periodic spike detection
+            const frequencies = [];
+            for (let i = 1; i < Math.min(batchTimes.length, 15); i++) {
+                const count = batchTimes.filter((_, idx) =>
+                    idx % i === 0 && batchTimes[idx] > mean + stdDev
+                ).length;
+                frequencies.push(count);
+            }
+            const periodicSpike = Math.max(...frequencies) / (batchTimes.length / 2);
+
+            return {
+                batchTimes: batchTimes.map(t => parseFloat(t.toFixed(3))),
+                mean: parseFloat(mean.toFixed(4)),
+                stdDev: parseFloat(stdDev.toFixed(4)),
+                sawtoothRatio: parseFloat(sawtoothRatio.toFixed(2)),
+                periodicSpike: parseFloat(periodicSpike.toFixed(4)),
+                maxBatch: parseFloat(Math.max(...batchTimes).toFixed(4)),
+                minBatch: parseFloat(Math.min(...batchTimes).toFixed(4))
+            };
+        }
+
+        // ============================================
+        // Main Collection
+        // ============================================
+        async function collectData() {
+            const runBtn = document.getElementById('runBtn');
+            const copyBtn = document.getElementById('copyBtn');
+            const status = document.getElementById('status');
+            const rawData = document.getElementById('rawData');
+
+            runBtn.disabled = true;
+            runBtn.innerHTML = '<span class="spinner"></span> Collecting...';
+            status.textContent = '⏳ Collecting CPU Jitter...';
+            status.className = 'status loading';
+
+            try {
+                // 1. CPU Jitter
+                const cpu = await collectCPUJitter();
+                document.getElementById('mCpuOutliers').textContent = (cpu.outlierRatio * 100).toFixed(2) + '%';
+                document.getElementById('mCpuStdDev').textContent = cpu.stdDev + 'ms';
+                status.textContent = '⏳ Collecting WebGL...';
+
+                // 2. WebGL
+                const webgl = await collectWebGL();
+                if (webgl.available) {
+                    document.getElementById('mWebglTime').textContent = webgl.avgTime + 'ms';
+                    document.getElementById('mWebglScaling').textContent = webgl.scalingFactor + 'x';
+                } else {
+                    document.getElementById('mWebglTime').textContent = 'N/A';
+                    document.getElementById('mWebglScaling').textContent = 'N/A';
+                }
+                status.textContent = '⏳ Collecting Thermal...';
+
+                // 3. Thermal
+                const thermal = await collectThermal();
+                document.getElementById('mThermalDeg').textContent = (thermal.degradation * 100).toFixed(1) + '%';
+                status.textContent = '⏳ Collecting Network...';
+
+                // 4. Network
+                const network = await collectNetwork();
+                document.getElementById('mNetRtt').textContent = network.avgRTT + 'ms';
+                document.getElementById('mNetJitter').textContent = network.avgJitter + 'ms';
+                status.textContent = '⏳ Collecting Event Loop...';
+
+                // 5. Event Loop
+                const eventLoop = await collectEventLoop();
+                document.getElementById('mElStdDev').textContent = eventLoop.stdDev + 'ms';
+
+                // Build raw data object
+                collectedData = {
+                    timestamp: new Date().toISOString(),
+                    metrics: {
+                        cpu: cpu,
+                        webgl: webgl,
+                        thermal: thermal,
+                        network: network,
+                        eventLoop: eventLoop
+                    },
+                    environment: {
+                        userAgent: navigator.userAgent,
+                        platform: navigator.platform,
+                        hardwareConcurrency: navigator.hardwareConcurrency
+                    }
+                };
+
+                // Show raw data
+                const jsonStr = JSON.stringify(collectedData, null, 2);
+                rawData.textContent = jsonStr;
+                rawData.className = 'raw-data show';
+
+                // Show copy button
+                copyBtn.className = 'btn btn-copy';
+                copyBtn.textContent = '📋 Copy JSON to Clipboard';
+
+                status.textContent = '✅ Collection complete! Click "Copy JSON" to copy data';
+                status.className = 'status done';
+
+            } catch (error) {
+                status.textContent = '❌ Error: ' + error.message;
+                status.className = 'status error';
+                console.error(error);
+            } finally {
+                runBtn.disabled = false;
+                runBtn.innerHTML = '🔄 Run Collection';
+            }
+        }
+
+        // ============================================
+        // Copy to Clipboard
+        // ============================================
+        function copyData() {
+            if (!collectedData) {
+                alert('Please run the collection first!');
+                return;
+            }
+
+            const json = JSON.stringify(collectedData, null, 2);
+
+            // Try clipboard API first
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(json).then(() => {
+                    showCopied();
+                }).catch(() => {
+                    fallbackCopy(json);
+                });
+            } else {
+                fallbackCopy(json);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.select();
+
+            try {
+                document.execCommand('copy');
+                showCopied();
+            } catch (e) {
+                alert('Could not copy. Please select the text manually.');
+            }
+
+            document.body.removeChild(textarea);
+        }
+
+        function showCopied() {
+            const btn = document.getElementById('copyBtn');
+            btn.textContent = '✅ Copied!';
+            btn.className = 'btn btn-copy copied';
+
+            // Also log to console for terminal access
+            if (collectedData) {
+                console.log('='.repeat(60));
+                console.log('📋 RAW DATA (Copy from below)');
+                console.log('='.repeat(60));
+                console.log(JSON.stringify(collectedData, null, 2));
+                console.log('='.repeat(60));
+            }
+
+            setTimeout(() => {
+                btn.textContent = '📋 Copy JSON to Clipboard';
+                btn.className = 'btn btn-copy';
+            }, 2000);
+        }
+
+        // ============================================
+        // Auto-run on load
+        // ============================================
+        window.addEventListener('load', () => {
+            setTimeout(collectData, 500);
+        });
+    </script>
+</body>
+</html>
