@@ -1,51 +1,1238 @@
-// playwright-test.js
-const { chromium } = require('playwright');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environment Detection Suite - MIT Lecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-(async () => {
-    const browser = await chromium.launch();
-    const page = await browser.newPage();
-    
-    // Navigate to the HTML file (saved locally or hosted)
-    await page.goto('file:///path/to/detection-suite.html');
-    
-    // Wait for the page to load
-    await page.waitForSelector('#runBtn');
-    
-    // Click the run button
-    await page.click('#runBtn');
-    
-    // Wait for tests to complete (30 seconds should be enough)
-    await page.waitForSelector('#resultCard:not(.hidden)', { timeout: 60000 });
-    
-    // Take a screenshot of the results
-    await page.screenshot({ path: 'detection-results.png', fullPage: true });
-    
-    // Get the verdict
-    const verdict = await page.textContent('#verdict');
-    console.log('Verdict:', verdict);
-    
-    // Get all metrics
-    const results = await page.evaluate(() => {
-        return {
-            eventLoop: {
-                mean: document.getElementById('elMean').textContent,
-                stdDev: document.getElementById('elStdDev').textContent,
-                sawtooth: document.getElementById('elSawtooth').textContent
-            },
-            gc: {
-                major: document.getElementById('gcMajor').textContent,
-                minor: document.getElementById('gcMinor').textContent
-            },
-            network: {
-                rtt: document.getElementById('netRtt').textContent,
-                jitter: document.getElementById('netJitter').textContent
-            },
-            verdict: document.getElementById('verdict').textContent,
-            confidence: document.getElementById('confidenceText').textContent
-        };
-    });
-    
-    console.log('Detailed Results:', JSON.stringify(results, null, 2));
-    
-    await browser.close();
-})();
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0a0e1a;
+            color: #e0e6f0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #8892b0;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #1a2035;
+            color: #8892b0;
+            border: 1px solid #2d3561;
+        }
+
+        .btn-secondary:hover {
+            background: #2d3561;
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: #111827;
+            border-radius: 16px;
+            padding: 25px;
+            border: 1px solid #1f2937;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: #374151;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #1f2937;
+            padding-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #e0e6f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title .icon {
+            font-size: 1.3rem;
+        }
+
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .badge-warning {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+
+        .badge-info {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(31, 41, 55, 0.5);
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #9ca3af;
+            font-size: 0.9rem;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+        }
+
+        .metric-value.high {
+            color: #f87171;
+        }
+        .metric-value.medium {
+            color: #fbbf24;
+        }
+        .metric-value.low {
+            color: #34d399;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #1f2937;
+            border-radius: 3px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .progress-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, #34d399, #60a5fa);
+            transition: width 0.5s ease;
+        }
+
+        .progress-bar .fill.danger {
+            background: linear-gradient(90deg, #f87171, #f5576c);
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, #1a2035 0%, #111827 100%);
+            border-radius: 16px;
+            padding: 30px;
+            border: 2px solid #2d3561;
+            margin-top: 20px;
+        }
+
+        .result-card .verdict {
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .result-card .verdict.ec2 {
+            color: #f87171;
+        }
+
+        .result-card .verdict.mobile {
+            color: #60a5fa;
+        }
+
+        .result-card .verdict.local {
+            color: #34d399;
+        }
+
+        .confidence-bar {
+            margin: 15px 0;
+        }
+
+        .confidence-bar .label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: #9ca3af;
+            margin-bottom: 5px;
+        }
+
+        .chart-container {
+            margin-top: 15px;
+            height: 100px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-text {
+            text-align: center;
+            color: #8892b0;
+            font-style: italic;
+            margin: 10px 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔬 Environment Detection Suite</h1>
+        <p class="subtitle">Advanced Timing-Based Fingerprinting for MIT Lecture</p>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="runAllTests()" id="runBtn">
+                🚀 Run All Tests
+            </button>
+            <button class="btn btn-secondary" onclick="resetUI()">
+                🔄 Reset
+            </button>
+            <button class="btn btn-danger" onclick="exportResults()">
+                📊 Export Results
+            </button>
+        </div>
+
+        <div id="statusText" class="status-text">Click "Run All Tests" to start detection</div>
+
+        <div class="grid" id="metricsGrid">
+            <!-- Event Loop Card -->
+            <div class="card" id="eventLoopCard">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">🔄</span>
+                        Event Loop Scheduling
+                    </div>
+                    <span class="badge badge-info" id="eventLoopBadge">Pending</span>
+                </div>
+                <div id="eventLoopContent">
+                    <div class="metric">
+                        <span class="metric-label">Mean Latency</span>
+                        <span class="metric-value" id="elMean">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Std Deviation</span>
+                        <span class="metric-value" id="elStdDev">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Sawtooth Ratio</span>
+                        <span class="metric-value" id="elSawtooth">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Max Jitter</span>
+                        <span class="metric-value" id="elMaxJitter">—</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="eventLoopChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GC Timing Card -->
+            <div class="card" id="gcCard">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">🗑️</span>
+                        Garbage Collection (V8)
+                    </div>
+                    <span class="badge badge-info" id="gcBadge">Pending</span>
+                </div>
+                <div id="gcContent">
+                    <div class="metric">
+                        <span class="metric-label">Major GC Time</span>
+                        <span class="metric-value" id="gcMajor">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Minor GC Time</span>
+                        <span class="metric-value" id="gcMinor">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Allocation Rate</span>
+                        <span class="metric-value" id="gcAlloc">—</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="fill" id="gcProgress" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WebGL Card -->
+            <div class="card" id="webglCard">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">🎮</span>
+                        WebGL Performance
+                    </div>
+                    <span class="badge badge-info" id="webglBadge">Pending</span>
+                </div>
+                <div id="webglContent">
+                    <div class="metric">
+                        <span class="metric-label">Draw Time</span>
+                        <span class="metric-value" id="webglDraw">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">ReadPixels Time</span>
+                        <span class="metric-value" id="webglRead">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Scaling Factor</span>
+                        <span class="metric-value" id="webglScaling">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">GPU Type</span>
+                        <span class="metric-value" id="webglGpu">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Card -->
+            <div class="card" id="networkCard">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">🌐</span>
+                        Network Timing
+                    </div>
+                    <span class="badge badge-info" id="networkBadge">Pending</span>
+                </div>
+                <div id="networkContent">
+                    <div class="metric">
+                        <span class="metric-label">Avg RTT</span>
+                        <span class="metric-value" id="netRtt">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Jitter (StdDev)</span>
+                        <span class="metric-value" id="netJitter">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Packet Loss Indicator</span>
+                        <span class="metric-value" id="netLoss">—</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="fill danger" id="netProgress" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CPU Jitter Card -->
+            <div class="card" id="cpuCard">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">⚡</span>
+                        CPU Jitter / Steal
+                    </div>
+                    <span class="badge badge-info" id="cpuBadge">Pending</span>
+                </div>
+                <div id="cpuContent">
+                    <div class="metric">
+                        <span class="metric-label">Outlier Ratio</span>
+                        <span class="metric-value" id="cpuOutlier">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">IQR (Interquartile)</span>
+                        <span class="metric-value" id="cpuIqr">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Max Deviation</span>
+                        <span class="metric-value" id="cpuMaxDev">—</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Thermal / Battery Card -->
+            <div class="card" id="thermalCard">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">🌡️</span>
+                        Thermal & Battery
+                    </div>
+                    <span class="badge badge-info" id="thermalBadge">Pending</span>
+                </div>
+                <div id="thermalContent">
+                    <div class="metric">
+                        <span class="metric-label">Thermal Degradation</span>
+                        <span class="metric-value" id="thermalDeg">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Battery Available</span>
+                        <span class="metric-value" id="thermalBattery">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Charging Status</span>
+                        <span class="metric-value" id="thermalCharging">—</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Battery Level</span>
+                        <span class="metric-value" id="thermalLevel">—</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Final Verdict -->
+        <div class="result-card hidden" id="resultCard">
+            <div class="verdict" id="verdict">—</div>
+            <div class="confidence-bar">
+                <div class="label">
+                    <span>Confidence</span>
+                    <span id="confidenceText">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="fill" id="confidenceFill" style="width: 0%"></div>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 20px;">
+                <div class="metric">
+                    <span class="metric-label">Event Loop Score</span>
+                    <span class="metric-value" id="scoreEL">—</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">GC Score</span>
+                    <span class="metric-value" id="scoreGC">—</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Network Score</span>
+                    <span class="metric-value" id="scoreNet">—</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">CPU Score</span>
+                    <span class="metric-value" id="scoreCPU">—</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Thermal Score</span>
+                    <span class="metric-value" id="scoreThermal">—</span>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #1f2937;">
+                <button class="btn btn-secondary" onclick="showDetails()">📋 Show Detailed Analysis</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let testResults = {};
+        let charts = {};
+
+        // Utility functions
+        function calculateVariance(arr) {
+            const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+            return arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / arr.length;
+        }
+
+        function calculateStdDev(arr) {
+            return Math.sqrt(calculateVariance(arr));
+        }
+
+        function sleep(ms) {
+            return new Promise(r => setTimeout(r, ms));
+        }
+
+        // Chart rendering
+        function renderChart(canvasId, data, color = '#60a5fa') {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width || 300;
+            canvas.height = rect.height || 100;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (!data || data.length < 2) {
+                ctx.fillStyle = '#8892b0';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('No data available', canvas.width/2, canvas.height/2);
+                return;
+            }
+            
+            const padding = 20;
+            const chartWidth = canvas.width - padding * 2;
+            const chartHeight = canvas.height - padding * 2;
+            
+            const min = Math.min(...data);
+            const max = Math.max(...data);
+            const range = max - min || 1;
+            
+            // Draw grid lines
+            ctx.strokeStyle = '#1f2937';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i < 5; i++) {
+                const y = padding + (chartHeight * i) / 4;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.stroke();
+            }
+            
+            // Draw line
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            for (let i = 0; i < data.length; i++) {
+                const x = padding + (i / (data.length - 1)) * chartWidth;
+                const y = padding + chartHeight - ((data[i] - min) / range) * chartHeight;
+                
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            
+            // Draw points
+            for (let i = 0; i < data.length; i++) {
+                const x = padding + (i / (data.length - 1)) * chartWidth;
+                const y = padding + chartHeight - ((data[i] - min) / range) * chartHeight;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
+        }
+
+        // Update UI helpers
+        function updateBadge(elementId, text, type = 'info') {
+            const badge = document.getElementById(elementId);
+            if (!badge) return;
+            badge.textContent = text;
+            badge.className = `badge badge-${type}`;
+        }
+
+        function updateMetric(elementId, value, threshold = null) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            el.textContent = value;
+            if (threshold !== null) {
+                if (typeof value === 'string') {
+                    // Handle string values
+                } else if (value > threshold) {
+                    el.className = 'metric-value high';
+                } else if (value > threshold * 0.5) {
+                    el.className = 'metric-value medium';
+                } else {
+                    el.className = 'metric-value low';
+                }
+            }
+        }
+
+        // Test 1: Event Loop Scheduling
+        async function testEventLoop() {
+            const timestamps = [];
+            const batchTimes = [];
+            
+            for (let batch = 0; batch < 20; batch++) {
+                const batchStart = performance.now();
+                for (let i = 0; i < 100; i++) {
+                    await Promise.resolve();
+                }
+                const batchEnd = performance.now();
+                batchTimes.push(batchEnd - batchStart);
+                
+                // Add delay to allow scheduler
+                const delayStart = performance.now();
+                while (performance.now() - delayStart < 5) {}
+            }
+            
+            const mean = batchTimes.reduce((a, b) => a + b, 0) / batchTimes.length;
+            const stdDev = calculateStdDev(batchTimes);
+            
+            // Detect sawtooth pattern
+            const diffs = [];
+            for (let i = 1; i < batchTimes.length; i++) {
+                diffs.push(Math.abs(batchTimes[i] - batchTimes[i-1]));
+            }
+            const maxDiff = Math.max(...diffs);
+            const avgDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+            const sawtoothRatio = maxDiff / avgDiff;
+            
+            // Determine if sawtooth pattern exists
+            const hasSawtooth = sawtoothRatio > 2.5;
+            
+            // Render chart
+            renderChart('eventLoopChart', batchTimes, '#60a5fa');
+            
+            return {
+                mean,
+                stdDev,
+                sawtoothRatio,
+                maxDiff,
+                hasSawtooth,
+                batchTimes,
+                isEC2: stdDev < 0.15 && !hasSawtooth,
+                isMobile: hasSawtooth
+            };
+        }
+
+        // Test 2: Garbage Collection
+        async function testGC() {
+            // Major GC simulation
+            const majorStart = performance.now();
+            const bigArray = [];
+            for (let i = 0; i < 50000; i++) {
+                bigArray.push({ data: new Array(100).fill(i) });
+            }
+            // Force cleanup
+            bigArray.length = 0;
+            const majorTime = performance.now() - majorStart;
+            
+            // Minor GC simulation
+            const minorStart = performance.now();
+            for (let i = 0; i < 10000; i++) {
+                const obj = { x: i, y: i * 2 };
+            }
+            const minorTime = performance.now() - minorStart;
+            
+            // Allocation rate test
+            const allocStart = performance.now();
+            let allocations = 0;
+            while (performance.now() - allocStart < 100) {
+                const arr = new Array(1000);
+                allocations++;
+            }
+            const allocRate = allocations / 0.1; // per second
+            
+            const isEC2 = majorTime > 40 && minorTime > 4;
+            const isMobile = majorTime > 25 && minorTime > 3;
+            
+            // Update progress
+            const progress = Math.min((majorTime / 100) * 100, 100);
+            document.getElementById('gcProgress').style.width = progress + '%';
+            document.getElementById('gcProgress').className = 'fill' + (progress > 60 ? ' danger' : '');
+            
+            return {
+                majorTime,
+                minorTime,
+                allocRate,
+                isEC2,
+                isMobile
+            };
+        }
+
+        // Test 3: WebGL
+        async function testWebGL() {
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                
+                if (!gl) {
+                    return {
+                        available: false,
+                        error: 'WebGL not supported'
+                    };
+                }
+                
+                // Compile shaders
+                const vs = gl.createShader(gl.VERTEX_SHADER);
+                gl.shaderSource(vs, `
+                    attribute vec2 pos;
+                    void main() {
+                        gl_Position = vec4(pos, 0, 1);
+                    }
+                `);
+                gl.compileShader(vs);
+                
+                const fs = gl.createShader(gl.FRAGMENT_SHADER);
+                gl.shaderSource(fs, `
+                    void main() {
+                        gl_FragColor = vec4(1, 0, 0, 1);
+                    }
+                `);
+                gl.compileShader(fs);
+                
+                const program = gl.createProgram();
+                gl.attachShader(program, vs);
+                gl.attachShader(program, fs);
+                gl.linkProgram(program);
+                gl.useProgram(program);
+                
+                // Test draw times at different resolutions
+                const sizes = [64, 128, 256];
+                const drawTimes = [];
+                const readTimes = [];
+                
+                for (const size of sizes) {
+                    canvas.width = size;
+                    canvas.height = size;
+                    gl.viewport(0, 0, size, size);
+                    
+                    const drawStart = performance.now();
+                    gl.clearColor(0.5, 0.5, 0.5, 1);
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                    drawTimes.push(performance.now() - drawStart);
+                    
+                    const pixels = new Uint8Array(size * size * 4);
+                    const readStart = performance.now();
+                    gl.readPixels(0, 0, size, size, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+                    readTimes.push(performance.now() - readStart);
+                }
+                
+                const scalingFactor = readTimes[2] / readTimes[0];
+                const gpuInfo = gl.getParameter(gl.RENDERER) || 'Unknown';
+                
+                const isEC2 = scalingFactor < 70 && drawTimes[0] > 10;
+                const isMobile = scalingFactor > 80;
+                
+                return {
+                    available: true,
+                    drawTimes,
+                    readTimes,
+                    scalingFactor,
+                    gpuInfo,
+                    isEC2,
+                    isMobile,
+                    avgDraw: drawTimes.reduce((a, b) => a + b, 0) / drawTimes.length,
+                    avgRead: readTimes.reduce((a, b) => a + b, 0) / readTimes.length
+                };
+            } catch (e) {
+                return {
+                    available: false,
+                    error: e.message
+                };
+            }
+        }
+
+        // Test 4: Network Timing
+        async function testNetwork() {
+            const endpoints = [
+                'https://www.google.com',
+                'https://www.cloudflare.com',
+                'https://www.amazon.com'
+            ];
+            
+            const allRTTs = [];
+            
+            for (const url of endpoints) {
+                const rtts = [];
+                for (let i = 0; i < 3; i++) {
+                    try {
+                        const start = performance.now();
+                        await fetch(url + '?_=' + Math.random(), {
+                            cache: 'no-store',
+                            headers: { 'Cache-Control': 'no-cache' }
+                        });
+                        rtts.push(performance.now() - start);
+                    } catch (e) {
+                        rtts.push(1000); // Timeout
+                    }
+                }
+                allRTTs.push(...rtts);
+            }
+            
+            const avgRTT = allRTTs.reduce((a, b) => a + b, 0) / allRTTs.length;
+            const jitter = calculateStdDev(allRTTs);
+            const lossIndicator = allRTTs.filter(r => r > 500).length / allRTTs.length;
+            
+            const isEC2 = avgRTT < 80 && jitter < 15;
+            const isMobile = avgRTT > 120 || jitter > 30;
+            
+            // Update progress
+            const progress = Math.min((avgRTT / 300) * 100, 100);
+            document.getElementById('netProgress').style.width = progress + '%';
+            
+            return {
+                avgRTT,
+                jitter,
+                lossIndicator,
+                isEC2,
+                isMobile,
+                allRTTs
+            };
+        }
+
+        // Test 5: CPU Jitter
+        async function testCPUJitter() {
+            const iterations = 500;
+            const times = [];
+            
+            for (let i = 0; i < iterations; i++) {
+                const start = performance.now();
+                // CPU-intensive work
+                let x = 0;
+                for (let j = 0; j < 2000; j++) {
+                    x += Math.sqrt(j) * Math.sin(j);
+                    x = x ^ (x << 13);
+                    x = x ^ (x >> 17);
+                    x = x ^ (x << 5);
+                }
+                times.push(performance.now() - start);
+            }
+            
+            const sorted = [...times].sort((a, b) => a - b);
+            const q1 = sorted[Math.floor(iterations * 0.25)];
+            const q3 = sorted[Math.floor(iterations * 0.75)];
+            const iqr = q3 - q1;
+            const median = sorted[Math.floor(iterations / 2)];
+            
+            const outliers = times.filter(t => Math.abs(t - median) > 3 * iqr);
+            const outlierRatio = outliers.length / iterations;
+            const maxDev = Math.max(...times) - Math.min(...times);
+            
+            // Render chart
+            renderChart('cpuChart', times, '#f87171');
+            
+            const isEC2 = outlierRatio > 0.005 || maxDev > 5;
+            const isMobile = outlierRatio > 0.01 || maxDev > 8;
+            
+            return {
+                outlierRatio,
+                iqr,
+                maxDev,
+                isEC2,
+                isMobile,
+                times
+            };
+        }
+
+        // Test 6: Thermal / Battery
+        async function testThermal() {
+            // Thermal degradation test
+            const runs = 15;
+            const times = [];
+            
+            for (let run = 0; run < runs; run++) {
+                const start = performance.now();
+                let x = 0;
+                for (let i = 0; i < 30000; i++) {
+                    x += Math.sin(i) * Math.cos(i * 0.1);
+                    x = Math.pow(x % 1000, 1.1);
+                }
+                times.push(performance.now() - start);
+                await sleep(30);
+            }
+            
+            const firstHalf = times.slice(0, Math.floor(runs/2));
+            const secondHalf = times.slice(Math.floor(runs/2));
+            const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+            const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+            const degradation = (avgFirst - avgSecond) / avgFirst;
+            
+            const varianceFirst = calculateVariance(firstHalf);
+            const varianceSecond = calculateVariance(secondHalf);
+            const varianceGrowth = varianceSecond / varianceFirst;
+            
+            // Battery API
+            let batteryAvailable = false;
+            let charging = false;
+            let level = 0;
+            
+            try {
+                if (navigator.getBattery) {
+                    const battery = await navigator.getBattery();
+                    batteryAvailable = true;
+                    charging = battery.charging;
+                    level = battery.level;
+                }
+            } catch (e) {
+                // Battery API not available
+            }
+            
+            const isMobile = degradation > 0.03 || batteryAvailable;
+            const isEC2 = degradation < 0.01 && !batteryAvailable;
+            
+            return {
+                degradation,
+                varianceGrowth,
+                batteryAvailable,
+                charging,
+                level,
+                isMobile,
+                isEC2,
+                times
+            };
+        }
+
+        // Main test runner
+        async function runAllTests() {
+            const runBtn = document.getElementById('runBtn');
+            const statusText = document.getElementById('statusText');
+            
+            runBtn.disabled = true;
+            runBtn.innerHTML = '<span class="spinner"></span> Running Tests...';
+            statusText.textContent = '⏳ Running comprehensive environment detection...';
+            
+            try {
+                // Run all tests
+                statusText.textContent = '🔄 Testing Event Loop...';
+                const eventLoop = await testEventLoop();
+                updateUI('eventLoop', eventLoop);
+                
+                statusText.textContent = '🗑️ Testing Garbage Collection...';
+                const gc = await testGC();
+                updateUI('gc', gc);
+                
+                statusText.textContent = '🎮 Testing WebGL...';
+                const webgl = await testWebGL();
+                updateUI('webgl', webgl);
+                
+                statusText.textContent = '🌐 Testing Network...';
+                const network = await testNetwork();
+                updateUI('network', network);
+                
+                statusText.textContent = '⚡ Testing CPU Jitter...';
+                const cpu = await testCPUJitter();
+                updateUI('cpu', cpu);
+                
+                statusText.textContent = '🌡️ Testing Thermal/Battery...';
+                const thermal = await testThermal();
+                updateUI('thermal', thermal);
+                
+                // Calculate final verdict
+                statusText.textContent = '📊 Calculating final verdict...';
+                const verdict = calculateVerdict({ eventLoop, gc, webgl, network, cpu, thermal });
+                showVerdict(verdict);
+                
+                statusText.textContent = '✅ All tests complete!';
+                
+            } catch (error) {
+                statusText.textContent = '❌ Error: ' + error.message;
+                console.error(error);
+            } finally {
+                runBtn.disabled = false;
+                runBtn.innerHTML = '🚀 Run All Tests';
+            }
+        }
+
+        // Update UI for each test
+        function updateUI(testName, data) {
+            switch(testName) {
+                case 'eventLoop':
+                    updateBadge('eventLoopBadge', data.isEC2 ? 'EC2-like' : data.isMobile ? 'Mobile-like' : 'Mixed', 
+                               data.isEC2 ? 'danger' : data.isMobile ? 'warning' : 'info');
+                    updateMetric('elMean', data.mean.toFixed(2) + 'ms', 0.5);
+                    updateMetric('elStdDev', data.stdDev.toFixed(2) + 'ms', 0.3);
+                    updateMetric('elSawtooth', data.sawtoothRatio.toFixed(2) + 'x', 2.5);
+                    updateMetric('elMaxJitter', data.maxDiff.toFixed(2) + 'ms', 2);
+                    break;
+                    
+                case 'gc':
+                    updateBadge('gcBadge', data.isEC2 ? 'EC2-like' : data.isMobile ? 'Mobile-like' : 'Mixed',
+                               data.isEC2 ? 'danger' : data.isMobile ? 'warning' : 'info');
+                    updateMetric('gcMajor', data.majorTime.toFixed(1) + 'ms', 40);
+                    updateMetric('gcMinor', data.minorTime.toFixed(1) + 'ms', 4);
+                    updateMetric('gcAlloc', data.allocRate.toFixed(0) + '/s', 10000);
+                    break;
+                    
+                case 'webgl':
+                    if (data.available) {
+                        updateBadge('webglBadge', data.isEC2 ? 'EC2-like' : data.isMobile ? 'Mobile-like' : 'Local',
+                                   data.isEC2 ? 'danger' : data.isMobile ? 'warning' : 'success');
+                        updateMetric('webglDraw', data.avgDraw.toFixed(2) + 'ms', 10);
+                        updateMetric('webglRead', data.avgRead.toFixed(2) + 'ms', 20);
+                        updateMetric('webglScaling', data.scalingFactor.toFixed(1) + 'x', 80);
+                        updateMetric('webglGpu', data.gpuInfo.substring(0, 30), null);
+                    } else {
+                        updateBadge('webglBadge', 'Not Available', 'info');
+                        updateMetric('webglDraw', 'N/A');
+                        updateMetric('webglRead', 'N/A');
+                        updateMetric('webglScaling', 'N/A');
+                        updateMetric('webglGpu', 'Not supported');
+                    }
+                    break;
+                    
+                case 'network':
+                    updateBadge('networkBadge', data.isEC2 ? 'EC2-like' : data.isMobile ? 'Mobile-like' : 'Mixed',
+                               data.isEC2 ? 'danger' : data.isMobile ? 'warning' : 'info');
+                    updateMetric('netRtt', data.avgRTT.toFixed(0) + 'ms', 120);
+                    updateMetric('netJitter', data.jitter.toFixed(1) + 'ms', 30);
+                    updateMetric('netLoss', (data.lossIndicator * 100).toFixed(1) + '%', 10);
+                    break;
+                    
+                case 'cpu':
+                    updateBadge('cpuBadge', data.isEC2 ? 'EC2-like' : data.isMobile ? 'Mobile-like' : 'Local',
+                               data.isEC2 ? 'danger' : data.isMobile ? 'warning' : 'success');
+                    updateMetric('cpuOutlier', (data.outlierRatio * 100).toFixed(2) + '%', 0.5);
+                    updateMetric('cpuIqr', data.iqr.toFixed(2) + 'ms', 1);
+                    updateMetric('cpuMaxDev', data.maxDev.toFixed(2) + 'ms', 5);
+                    break;
+                    
+                case 'thermal':
+                    updateBadge('thermalBadge', data.isEC2 ? 'EC2-like' : data.isMobile ? 'Mobile-like' : 'Mixed',
+                               data.isEC2 ? 'danger' : data.isMobile ? 'warning' : 'info');
+                    updateMetric('thermalDeg', (data.degradation * 100).toFixed(1) + '%', 3);
+                    updateMetric('thermalBattery', data.batteryAvailable ? '✅ Available' : '❌ Not Available');
+                    updateMetric('thermalCharging', data.batteryAvailable ? (data.charging ? '🔌 Charging' : '🔋 Battery') : 'N/A');
+                    updateMetric('thermalLevel', data.batteryAvailable ? (data.level * 100).toFixed(0) + '%' : 'N/A');
+                    break;
+            }
+        }
+
+        // Calculate final verdict
+        function calculateVerdict(results) {
+            let scores = {
+                ec2: 0,
+                mobile: 0,
+                local: 0
+            };
+            
+            // Event Loop
+            if (results.eventLoop.isEC2) scores.ec2 += 0.25;
+            if (results.eventLoop.isMobile) scores.mobile += 0.25;
+            if (!results.eventLoop.isEC2 && !results.eventLoop.isMobile) scores.local += 0.15;
+            
+            // GC
+            if (results.gc.isEC2) scores.ec2 += 0.15;
+            if (results.gc.isMobile) scores.mobile += 0.15;
+            
+            // WebGL
+            if (results.webgl.isEC2) scores.ec2 += 0.15;
+            if (results.webgl.isMobile) scores.mobile += 0.15;
+            
+            // Network
+            if (results.network.isEC2) scores.ec2 += 0.20;
+            if (results.network.isMobile) scores.mobile += 0.20;
+            
+            // CPU
+            if (results.cpu.isEC2) scores.ec2 += 0.15;
+            if (results.cpu.isMobile) scores.mobile += 0.15;
+            if (!results.cpu.isEC2 && !results.cpu.isMobile) scores.local += 0.15;
+            
+            // Thermal
+            if (results.thermal.isEC2) scores.ec2 += 0.20;
+            if (results.thermal.isMobile) scores.mobile += 0.20;
+            if (!results.thermal.isEC2 && !results.thermal.isMobile) scores.local += 0.10;
+            
+            // Normalize
+            const total = scores.ec2 + scores.mobile + scores.local;
+            if (total > 0) {
+                scores.ec2 = scores.ec2 / total;
+                scores.mobile = scores.mobile / total;
+                scores.local = scores.local / total;
+            }
+            
+            // Determine verdict
+            let verdict = 'Unknown';
+            let confidence = 0;
+            
+            if (scores.ec2 > scores.mobile && scores.ec2 > scores.local) {
+                verdict = '🖥️ EC2 (Cloud)';
+                confidence = scores.ec2;
+            } else if (scores.mobile > scores.ec2 && scores.mobile > scores.local) {
+                verdict = '📱 Mobile Device';
+                confidence = scores.mobile;
+            } else if (scores.local > scores.ec2 && scores.local > scores.mobile) {
+                verdict = '💻 Local Machine';
+                confidence = scores.local;
+            } else {
+                verdict = '⚠️ Mixed / Inconclusive';
+                confidence = Math.max(scores.ec2, scores.mobile, scores.local);
+            }
+            
+            return {
+                verdict,
+                confidence: confidence * 100,
+                scores,
+                details: results
+            };
+        }
+
+        // Show final verdict
+        function showVerdict(verdict) {
+            const card = document.getElementById('resultCard');
+            card.classList.remove('hidden');
+            
+            const verdictEl = document.getElementById('verdict');
+            verdictEl.textContent = verdict.verdict;
+            verdictEl.className = 'verdict';
+            
+            if (verdict.verdict.includes('EC2')) {
+                verdictEl.classList.add('ec2');
+            } else if (verdict.verdict.includes('Mobile')) {
+                verdictEl.classList.add('mobile');
+            } else if (verdict.verdict.includes('Local')) {
+                verdictEl.classList.add('local');
+            }
+            
+            document.getElementById('confidenceText').textContent = verdict.confidence.toFixed(1) + '%';
+            document.getElementById('confidenceFill').style.width = verdict.confidence + '%';
+            
+            // Show individual scores
+            document.getElementById('scoreEL').textContent = (verdict.scores.ec2 * 100).toFixed(0) + '%';
+            document.getElementById('scoreGC').textContent = (verdict.scores.mobile * 100).toFixed(0) + '%';
+            document.getElementById('scoreNet').textContent = (verdict.scores.local * 100).toFixed(0) + '%';
+            document.getElementById('scoreCPU').textContent = (verdict.scores.ec2 * 100).toFixed(0) + '%';
+            document.getElementById('scoreThermal').textContent = (verdict.scores.mobile * 100).toFixed(0) + '%';
+        }
+
+        // Export results
+        function exportResults() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                results: testResults,
+                verdict: document.getElementById('verdict')?.textContent || 'Unknown'
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `environment-detection-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Show detailed analysis (placeholder)
+        function showDetails() {
+            alert('📋 Detailed Analysis\n\n' +
+                  'This would show:\n' +
+                  '• Raw timing data arrays\n' +
+                  '• Per-test confidence intervals\n' +
+                  '• Statistical significance metrics\n' +
+                  '• Comparison to known baselines\n\n' +
+                  'Export the results to get full JSON data.');
+        }
+
+        // Reset UI
+        function resetUI() {
+            location.reload();
+        }
+
+        // Initialize
+        console.log('🔬 Environment Detection Suite loaded');
+        console.log('📱 MIT Lecture - Advanced Timing Fingerprinting');
+        console.log('Click "Run All Tests" to begin');
+    </script>
+</body>
+</html>
