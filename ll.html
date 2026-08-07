@@ -1,0 +1,51 @@
+// playwright-test.js
+const { chromium } = require('playwright');
+
+(async () => {
+    const browser = await chromium.launch();
+    const page = await browser.newPage();
+    
+    // Navigate to the HTML file (saved locally or hosted)
+    await page.goto('file:///path/to/detection-suite.html');
+    
+    // Wait for the page to load
+    await page.waitForSelector('#runBtn');
+    
+    // Click the run button
+    await page.click('#runBtn');
+    
+    // Wait for tests to complete (30 seconds should be enough)
+    await page.waitForSelector('#resultCard:not(.hidden)', { timeout: 60000 });
+    
+    // Take a screenshot of the results
+    await page.screenshot({ path: 'detection-results.png', fullPage: true });
+    
+    // Get the verdict
+    const verdict = await page.textContent('#verdict');
+    console.log('Verdict:', verdict);
+    
+    // Get all metrics
+    const results = await page.evaluate(() => {
+        return {
+            eventLoop: {
+                mean: document.getElementById('elMean').textContent,
+                stdDev: document.getElementById('elStdDev').textContent,
+                sawtooth: document.getElementById('elSawtooth').textContent
+            },
+            gc: {
+                major: document.getElementById('gcMajor').textContent,
+                minor: document.getElementById('gcMinor').textContent
+            },
+            network: {
+                rtt: document.getElementById('netRtt').textContent,
+                jitter: document.getElementById('netJitter').textContent
+            },
+            verdict: document.getElementById('verdict').textContent,
+            confidence: document.getElementById('confidenceText').textContent
+        };
+    });
+    
+    console.log('Detailed Results:', JSON.stringify(results, null, 2));
+    
+    await browser.close();
+})();
