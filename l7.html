@@ -1,0 +1,631 @@
+<html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tilt + Swipe Stream</title>
+  <script src="https://static.mfilterit.org/global/session-recording-cdn.js" data-id1="s1188" data-pgid="sid-otp"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #0b1120;
+      font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 28px;
+      padding: 24px 20px;
+      max-width: 680px;
+      width: 100%;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    h1 {
+      color: #fff;
+      font-weight: 300;
+      font-size: 1.4rem;
+      margin: 0 0 4px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 small {
+      font-size: 0.8rem;
+      color: #7a8aaa;
+      font-weight: 400;
+    }
+
+    .sub {
+      color: #8899bb;
+      font-size: 0.9rem;
+      border-left: 3px solid #3b5b9b;
+      padding-left: 14px;
+      margin-bottom: 20px;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    /* ---- TILT DISPLAY (left) ---- */
+    .tilt-panel {
+      flex: 1;
+      min-width: 160px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 18px;
+      padding: 16px 18px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .tilt-panel .label {
+      color: #7a8aaa;
+      font-size: 0.75rem;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .tilt-values {
+      display: flex;
+      gap: 20px;
+      margin: 8px 0 12px 0;
+      flex-wrap: wrap;
+    }
+
+    .tilt-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tilt-item .tag {
+      font-size: 0.65rem;
+      color: #5a6a8a;
+    }
+
+    .tilt-item .num {
+      font-size: 1.5rem;
+      font-weight: 500;
+      color: #b0c8f0;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .tilt-array-box {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      padding: 10px 12px;
+      max-height: 120px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      line-height: 1.6;
+      color: #8fcbff;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .tilt-array-box .empty {
+      color: #44556a;
+      font-style: italic;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .tilt-array-box::-webkit-scrollbar {
+      width: 3px;
+    }
+    .tilt-array-box::-webkit-scrollbar-thumb {
+      background: #3b5b8b;
+      border-radius: 8px;
+    }
+
+    /* ---- SWIPE TRACKER (right) ---- */
+    .swipe-panel {
+      flex: 1;
+      min-width: 180px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 18px;
+      padding: 16px 18px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .swipe-panel .label {
+      color: #7a8aaa;
+      font-size: 0.75rem;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .track-container {
+      position: relative;
+      width: 100%;
+      height: 44px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 40px;
+      box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      touch-action: none;
+      cursor: pointer;
+      margin: 8px 0 12px 0;
+    }
+
+    .track-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 50%;
+      background: linear-gradient(90deg, #3b7bdd, #7a5cdb);
+      border-radius: 40px;
+      pointer-events: none;
+      transition: width 0.05s ease;
+    }
+
+    .thumb {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px;
+      height: 44px;
+      background: radial-gradient(circle at 30% 30%, #eef3ff, #b0c8f0);
+      border-radius: 50%;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+      cursor: grab;
+      touch-action: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      color: #1a2332;
+      left: 50%;
+      user-select: none;
+    }
+
+    .thumb:active {
+      cursor: grabbing;
+    }
+
+    .swipe-value-label {
+      color: #99aacd;
+      font-size: 0.75rem;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .swipe-array-box {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      padding: 10px 12px;
+      max-height: 90px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      line-height: 1.6;
+      color: #a8c8ff;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .swipe-array-box .empty {
+      color: #44556a;
+      font-style: italic;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .swipe-array-box::-webkit-scrollbar {
+      width: 3px;
+    }
+    .swipe-array-box::-webkit-scrollbar-thumb {
+      background: #3b5b8b;
+      border-radius: 8px;
+    }
+
+    /* ---- controls ---- */
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #b0c8f0;
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #3b7bdd, #7a5cdb);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #4a8bed, #8a6ceb);
+    }
+
+    .btn-danger {
+      border-color: rgba(255, 80, 80, 0.2);
+      color: #ff7a7a;
+    }
+
+    .btn-danger:hover {
+      background: rgba(255, 80, 80, 0.08);
+    }
+
+    .badge {
+      color: #6a8abb;
+      font-size: 0.7rem;
+      margin-left: auto;
+      align-self: center;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #3b5b8b;
+      margin-right: 6px;
+      transition: background 0.2s;
+    }
+
+    .status-dot.active {
+      background: #4ade80;
+      box-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
+    }
+
+    @media (max-width: 520px) {
+      .row {
+        flex-direction: column;
+      }
+      .tilt-values {
+        gap: 12px;
+      }
+      .tilt-item .num {
+        font-size: 1.2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h1>
+    <span>📊 Tilt + Swipe</span>
+    <small>real tilt · swipe stream</small>
+  </h1>
+  <div class="sub">📱 Tilt your phone → tilt values appear. Swipe the thumb ↔ for a separate stream.</div>
+
+  <div class="row">
+    <!-- LEFT: real device tilt -->
+    <div class="tilt-panel">
+      <div class="label">
+        <span>📐 real tilt (beta / gamma)</span>
+        <span class="badge" id="tiltCount">1 values</span>
+      </div>
+      <div class="tilt-values">
+        <div class="tilt-item">
+          <span class="tag">β (front/back)</span>
+          <span class="num" id="betaDisplay">0°</span>
+        </div>
+        <div class="tilt-item">
+          <span class="tag">γ (left/right)</span>
+          <span class="num" id="gammaDisplay">0°</span>
+        </div>
+      </div>
+      <div class="tilt-array-box" id="tiltArrayBox"><span style="color:#6a8abb;">[</span> <span style="color:#8fcbff;">0°</span><span style="color:#44556a;">/</span><span style="color:#7aadff;">0°</span> <span style="color:#6a8abb;">]</span></div>
+      <div style="font-size:0.6rem; color:#44556a; margin-top:6px;">
+        <span class="status-dot active" id="tiltStatusDot"></span>
+        <span id="tiltStatusText">recording</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: swipe tracker -->
+    <div class="swipe-panel">
+      <div class="label">
+        <span>↔️ swipe stream</span>
+        <span class="badge" id="swipeCount">0 values</span>
+      </div>
+      <div class="swipe-value-label" id="swipeValueLabel">0°</div>
+      <div class="track-container" id="trackContainer">
+        <div class="track-fill" id="trackFill" style="width: 50%;"></div>
+        <div class="thumb" id="thumb" style="left: 50%;">↔</div>
+      </div>
+      <div class="swipe-array-box" id="swipeArrayBox"><span class="empty">⏳ drag the thumb</span></div>
+      <div style="font-size:0.6rem; color:#44556a; margin-top:6px;">
+        <span class="status-dot" id="swipeStatusDot"></span>
+        <span id="swipeStatusText">idle</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- controls -->
+  <div class="controls">
+    <button class="btn btn-primary" id="clearAllBtn">🗑️ Clear All</button>
+    <button class="btn" id="copyTiltBtn">📋 Copy Tilt</button>
+    <button class="btn" id="copySwipeBtn">📋 Copy Swipe</button>
+    <span style="color:#44556a; font-size:0.7rem; margin-left:auto; align-self:center;">
+      <span id="permissionStatus">✅ auto‑grant</span>
+    </span>
+  </div>
+</div>
+
+<script>
+  (function() {
+    'use strict';
+
+    // ----- DOM refs -----
+    const betaDisplay = document.getElementById('betaDisplay');
+    const gammaDisplay = document.getElementById('gammaDisplay');
+    const tiltArrayBox = document.getElementById('tiltArrayBox');
+    const tiltCount = document.getElementById('tiltCount');
+    const tiltStatusDot = document.getElementById('tiltStatusDot');
+    const tiltStatusText = document.getElementById('tiltStatusText');
+
+    const trackContainer = document.getElementById('trackContainer');
+    const thumb = document.getElementById('thumb');
+    const trackFill = document.getElementById('trackFill');
+    const swipeValueLabel = document.getElementById('swipeValueLabel');
+    const swipeArrayBox = document.getElementById('swipeArrayBox');
+    const swipeCount = document.getElementById('swipeCount');
+    const swipeStatusDot = document.getElementById('swipeStatusDot');
+    const swipeStatusText = document.getElementById('swipeStatusText');
+
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const copyTiltBtn = document.getElementById('copyTiltBtn');
+    const copySwipeBtn = document.getElementById('copySwipeBtn');
+    const permissionStatus = document.getElementById('permissionStatus');
+
+    // ----- State -----
+    const tiltStream = [];      // array of {beta, gamma} or just beta+gamma combined?
+    const swipeStream = [];     // array of degree values from swipe
+
+    let isDragging = false;
+    let currentSwipe = 0;       // -90 … +90
+    let tiltActive = false;
+
+    // ----- Helpers -----
+    function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+    function mapRange(v, inMin, inMax, outMin, outMax) {
+      return outMin + ((v - inMin) / (inMax - inMin)) * (outMax - outMin);
+    }
+    function round1(v) { return Math.round(v * 10) / 10; }
+
+    // ----- Render tilt array -----
+    function renderTilt() {
+      if (tiltStream.length === 0) {
+        tiltArrayBox.innerHTML = `<span class="empty">⏳ waiting for tilt data…</span>`;
+        tiltCount.textContent = '0 values';
+        return;
+      }
+      const parts = tiltStream.map((entry) => {
+        return `<span style="color:#8fcbff;">${round1(entry.beta)}°</span><span style="color:#44556a;">/</span><span style="color:#7aadff;">${round1(entry.gamma)}°</span>`;
+      });
+      tiltArrayBox.innerHTML = `<span style="color:#6a8abb;">[</span> ${parts.join('<span style="color:#44556a;">, </span>')} <span style="color:#6a8abb;">]</span>`;
+      tiltArrayBox.scrollTop = tiltArrayBox.scrollHeight;
+      tiltCount.textContent = `${tiltStream.length} values`;
+    }
+
+    // ----- Render swipe array -----
+    function renderSwipe() {
+      if (swipeStream.length === 0) {
+        swipeArrayBox.innerHTML = `<span class="empty">⏳ drag the thumb</span>`;
+        swipeCount.textContent = '0 values';
+        return;
+      }
+      const parts = swipeStream.map(v => `<span style="color:#a8c8ff;">${round1(v)}°</span>`);
+      swipeArrayBox.innerHTML = `<span style="color:#6a8abb;">[</span> ${parts.join('<span style="color:#44556a;">, </span>')} <span style="color:#6a8abb;">]</span>`;
+      swipeArrayBox.scrollTop = swipeArrayBox.scrollHeight;
+      swipeCount.textContent = `${swipeStream.length} values`;
+    }
+
+    // ----- Record tilt (from device orientation) -----
+    function recordTilt(beta, gamma) {
+      tiltStream.push({ beta: round1(beta), gamma: round1(gamma) });
+      renderTilt();
+      tiltStatusDot.classList.add('active');
+      tiltStatusText.textContent = 'recording';
+      tiltActive = true;
+    }
+
+    // ----- Record swipe -----
+    function recordSwipe(value) {
+      const clamped = clamp(Math.round(value * 10) / 10, -90, 90);
+      swipeStream.push(clamped);
+      renderSwipe();
+      swipeStatusDot.classList.add('active');
+      swipeStatusText.textContent = 'recording';
+    }
+
+    // ----- Update thumb position (horizontal) -----
+    function updateThumb(clientX) {
+      const rect = trackContainer.getBoundingClientRect();
+      const relX = clamp((clientX - rect.left) / rect.width, 0, 1);
+      const percent = relX * 100;
+      const tilt = mapRange(percent, 0, 100, -90, 90);
+      currentSwipe = Math.round(tilt * 10) / 10;
+
+      thumb.style.left = `${relX * 100}%`;
+      trackFill.style.width = `${percent}%`;
+      swipeValueLabel.textContent = `${currentSwipe}°`;
+
+      if (isDragging) {
+        recordSwipe(currentSwipe);
+      }
+    }
+
+    // ----- Drag events -----
+    function startDrag(clientX) {
+      isDragging = true;
+      thumb.style.cursor = 'grabbing';
+      swipeStatusDot.classList.add('active');
+      swipeStatusText.textContent = 'recording';
+      updateThumb(clientX);
+    }
+
+    function stopDrag() {
+      if (isDragging) {
+        isDragging = false;
+        thumb.style.cursor = 'grab';
+        if (swipeStream.length > 0) {
+          swipeStatusText.textContent = 'paused';
+        } else {
+          swipeStatusDot.classList.remove('active');
+          swipeStatusText.textContent = 'idle';
+        }
+      }
+    }
+
+    // ----- Mouse -----
+    function onMouseDown(e) { e.preventDefault(); startDrag(e.clientX); }
+    function onMouseMove(e) { if (!isDragging) return; e.preventDefault(); updateThumb(e.clientX); }
+    function onMouseUp(e) { stopDrag(); }
+
+    // ----- Touch -----
+    function onTouchStart(e) {
+      e.preventDefault();
+      const t = e.touches[0];
+      if (t) startDrag(t.clientX);
+    }
+    function onTouchMove(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      if (t) updateThumb(t.clientX);
+    }
+    function onTouchEnd(e) { stopDrag(); }
+
+    // ----- Clear all -----
+    function clearAll() {
+      tiltStream.length = 0;
+      swipeStream.length = 0;
+      renderTilt();
+      renderSwipe();
+      // reset thumb to center
+      thumb.style.left = '50%';
+      trackFill.style.width = '50%';
+      currentSwipe = 0;
+      swipeValueLabel.textContent = '0°';
+      tiltStatusDot.classList.remove('active');
+      tiltStatusText.textContent = 'idle';
+      swipeStatusDot.classList.remove('active');
+      swipeStatusText.textContent = 'idle';
+      tiltActive = false;
+    }
+
+    // ----- Copy functions -----
+    function copyTilt() {
+      if (tiltStream.length === 0) return alert('No tilt data to copy.');
+      const text = tiltStream.map(e => `(${round1(e.beta)}°, ${round1(e.gamma)}°)`).join(', ');
+      navigator.clipboard?.writeText(`[${text}]`).then(() => alert('Copied!')).catch(() => alert('Copy not available.'));
+    }
+    function copySwipe() {
+      if (swipeStream.length === 0) return alert('No swipe data to copy.');
+      const text = swipeStream.map(v => `${round1(v)}°`).join(', ');
+      navigator.clipboard?.writeText(`[${text}]`).then(() => alert('Copied!')).catch(() => alert('Copy not available.'));
+    }
+
+    // ----- Device Orientation -----
+    function handleOrientation(e) {
+      const beta = e.beta || 0;   // -180 … 180
+      const gamma = e.gamma || 0; // -90 … 90
+      betaDisplay.textContent = `${round1(beta)}°`;
+      gammaDisplay.textContent = `${round1(gamma)}°`;
+      if (tiltStream.length === 0 || tiltActive) {
+        recordTilt(beta, gamma);
+      }
+    }
+
+    // ----- Permission (iOS 13+) -----
+    function requestPermission() {
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+          .then(state => {
+            if (state === 'granted') {
+              permissionStatus.textContent = '✅ granted';
+              window.addEventListener('deviceorientation', handleOrientation);
+            } else {
+              permissionStatus.textContent = '❌ denied';
+            }
+          })
+          .catch(() => {
+            permissionStatus.textContent = '⚠️ error';
+          });
+      } else {
+        // Android / older iOS: auto‑grant
+        permissionStatus.textContent = '✅ auto‑grant';
+        window.addEventListener('deviceorientation', handleOrientation);
+      }
+    }
+
+    // ----- Init -----
+    function init() {
+      // permission
+      permissionStatus.textContent = '⏳ requesting…';
+      requestPermission();
+
+      // Swipe events
+      thumb.addEventListener('mousedown', onMouseDown);
+      trackContainer.addEventListener('mousedown', (e) => {
+        if (!isDragging) startDrag(e.clientX);
+      });
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+
+      thumb.addEventListener('touchstart', onTouchStart, { passive: false });
+      trackContainer.addEventListener('touchstart', (e) => {
+        if (!isDragging) {
+          const t = e.touches[0];
+          if (t) startDrag(t.clientX);
+        }
+      }, { passive: false });
+      window.addEventListener('touchmove', onTouchMove, { passive: false });
+      window.addEventListener('touchend', onTouchEnd, { passive: false });
+      window.addEventListener('touchcancel', onTouchEnd, { passive: false });
+
+      // Buttons
+      clearAllBtn.addEventListener('click', clearAll);
+      copyTiltBtn.addEventListener('click', copyTilt);
+      copySwipeBtn.addEventListener('click', copySwipe);
+
+      // Initial render
+      renderTilt();
+      renderSwipe();
+      thumb.style.left = '50%';
+      trackFill.style.width = '50%';
+      swipeValueLabel.textContent = '0°';
+
+      console.log('✅ Tilt + Swipe stream ready.');
+    }
+
+    init();
+  })();
+</script>
+
+</body></html>

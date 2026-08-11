@@ -1,0 +1,279 @@
+// In a real browser:
+navigator.hasOwnProperty("maxTouchPoints"); // returns false
+
+in css
+  background: url('/css-track?mfid=456&element=class');
+
+
+
+(function detectCodecMismatch() {
+  const video = document.createElement('video');
+  
+  const h264Support = video.canPlayType('video/mp4; codecs="avc1.42E01E"');
+  
+   const aacSupport = video.canPlayType('audio/aac');
+
+  const userAgent = navigator.userAgent.toLowerCase();
+  const claimsWindowsOrMac = userAgent.includes('windows') || userAgent.includes('macintosh');
+  
+  
+  const hasH264Support = h264Support === 'probably' || h264Support === 'maybe';
+
+  console.log('H.264 Support:', h264Support);
+  console.log('AAC Support:', aacSupport);
+
+  // RED FLAG: Claiming Windows/Mac desktop browser, but lacking native H.264
+  if (claimsWindowsOrMac && !hasH264Support) {
+    console.warn('BOT DETECTED: Client claims desktop OS but lacks native H.264 video decoding (likely Headless Linux on EC2).');
+    return { isBot: true, reason: 'Missing H.264 on desktop UA' };
+  }
+
+  return { isBot: false };
+})();
+
+
+
+
+export function browserApiIntegrityInfo() {
+  const startTime = performance.now();
+  const tamperedAPIs = [];
+  let totalChecked = 0;
+  let nativeCount = 0;
+
+  let cleanToString = null;
+  let iframe = null;
+
+  try {
+
+    iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    (document.head || document.documentElement).appendChild(iframe);
+
+    if (iframe.contentWindow && iframe.contentWindow.Function) {
+      cleanToString = iframe.contentWindow.Function.prototype.toString;
+    }
+  } catch (e) {
+    console.warn("Could not create pristine iframe context:", e);
+  }
+
+
+  const safeToString = cleanToString || Function.prototype.toString;
+  const targetsToSweep = [
+    { name: "window", obj: window },
+    {
+      name: "Navigator.prototype",
+      obj: typeof Navigator !== "undefined" ? Navigator.prototype : null,
+    },
+    {
+      name: "Document.prototype",
+      obj: typeof Document !== "undefined" ? Document.prototype : null,
+    },
+    {
+      name: "HTMLCanvasElement.prototype",
+      obj:
+        typeof HTMLCanvasElement !== "undefined"
+          ? HTMLCanvasElement.prototype
+          : null,
+    },
+    {
+      name: "WebGLRenderingContext.prototype",
+      obj:
+        typeof WebGLRenderingContext !== "undefined"
+          ? WebGLRenderingContext.prototype
+          : null,
+    },
+    {
+      name: "AudioContext.prototype",
+      obj: typeof AudioContext !== "undefined" ? AudioContext.prototype : null,
+    },
+    {
+      name: "Storage.prototype",
+      obj: typeof Storage !== "undefined" ? Storage.prototype : null,
+    },
+    {
+      name: "Permissions.prototype",
+      obj: typeof Permissions !== "undefined" ? Permissions.prototype : null,
+    },
+    {
+      name: "Screen.prototype",
+      obj: typeof Screen !== "undefined" ? Screen.prototype : null,
+    },
+  ];
+
+  function inspectProperty(namespace, propName, descriptor, rawVal) {
+    totalChecked++;
+
+   
+    if (descriptor) {
+      if (typeof descriptor.get === "function") {
+        checkFunction(`${namespace}.${propName} [getter]`, descriptor.get);
+      }
+      if (typeof descriptor.set === "function") {
+        checkFunction(`${namespace}.${propName} [setter]`, descriptor.set);
+      }
+    }
+
+    if (typeof rawVal === "function") {
+      checkFunction(`${namespace}.${propName}`, rawVal);
+    }
+  }
+
+  function checkFunction(identifier, fn) {
+    try {
+      const stringified = safeToString.call(fn);
+      // Native methods output "[native code]" inside the stringified body
+      if (stringified.includes("[native code]")) {
+        nativeCount++;
+      } else {
+        tamperedAPIs.push({
+          target: identifier,
+          codeSnippet: stringified.slice(0, 100), // Truncate long source functions
+        });
+      }
+    } catch (err) {
+      tamperedAPIs.push({
+        target: identifier,
+        codeSnippet: `Execution Error: ${err.message}`,
+      });
+    }
+  }
+
+
+  for (const item of targetsToSweep) {
+    if (!item.obj) continue;
+
+    const propNames = Object.getOwnPropertyNames(item.obj);
+    for (const prop of propNames) {
+      try {
+        const descriptor = Object.getOwnPropertyDescriptor(item.obj, prop);
+        let rawVal = null;
+
+        if (!descriptor || (!descriptor.get && !descriptor.set)) {
+          rawVal = item.obj[prop];
+        }
+
+        inspectProperty(item.name, prop, descriptor, rawVal);
+      } catch (e) {
+        // Handle restricted or cross-origin property access security errors
+      }
+    }
+  }
+
+  if (iframe && iframe.parentNode) {
+    iframe.parentNode.removeChild(iframe);
+  }
+
+  const duration = Number((performance.now() - startTime).toFixed(2));
+
+  return {
+    totalChecked,
+    nativeCount,
+    nonNativeCount: tamperedAPIs.length,
+    tamperedAPIs,
+    scanDurationMs: duration,
+  };
+}
+
+
+
+
+export function verifyBrowserAPISweep(sweepData) {
+  const anomalyReasons = [];
+  const flaggedTargets = [];
+  let riskScore = 0;
+  let criticalTamperingCount = 0;
+  let nonCriticalTamperingCount = 0;
+
+
+  if (!sweepData || typeof sweepData !== "object") {
+    return {
+      isTampered: true,
+      criticalTamperingCount: 0,
+      nonCriticalTamperingCount: 0,
+      riskScore: 100,
+      anomalyReasons: ["Missing or malformed sweepAllBrowserAPIs payload"],
+      flaggedTargets: [],
+    };
+  }
+
+  const { totalChecked, nonNativeCount, tamperedAPIs = [] } = sweepData;
+
+
+  if (typeof totalChecked !== "number" || totalChecked < 100) {
+    riskScore += 40;
+    anomalyReasons.push(
+      `Suspiciously low API inspection count (${totalChecked} checked). Prototype iteration may have been aborted or hijacked.`,
+    );
+  }
+
+
+  const CRITICAL_TARGET_PATTERNS = [
+    /Navigator\.prototype\.webdriver/i,
+    /Navigator\.prototype\.userAgent/i,
+    /Navigator\.prototype\.languages/i,
+    /HTMLCanvasElement\.prototype\.toDataURL/i,
+    /HTMLCanvasElement\.prototype\.getImageData/i,
+    /WebGLRenderingContext\.prototype\.getParameter/i,
+    /Permissions\.prototype\.query/i,
+    /Function\.prototype\.toString/i,
+    /Function\.prototype\.bind/i,
+    /Function\.prototype\.apply/i,
+    /Function\.prototype\.call/i,
+  ];
+
+  // Low-Risk Targets (Frequently modified by valid Extensions / Polyfills / Translate)
+  const BENIGN_EXTENSION_PATTERNS = [
+    /fetch/i,
+    /XMLHttpRequest/i,
+    /chrome\.runtime/i,
+    /HTMLInputElement/i, // Password managers (Bitwarden, 1Password)
+    /Clipboard/i,
+  ];
+
+  // 5. Inspect Tampered API Array
+  if (Array.isArray(tamperedAPIs) && tamperedAPIs.length > 0) {
+    for (const item of tamperedAPIs) {
+      const targetName = item.target || "";
+      flaggedTargets.push(targetName);
+
+      const isCritical = CRITICAL_TARGET_PATTERNS.some((pattern) =>
+        pattern.test(targetName),
+      );
+
+      const isBenignExtension = BENIGN_EXTENSION_PATTERNS.some((pattern) =>
+        pattern.test(targetName),
+      );
+
+      if (isCritical) {
+        criticalTamperingCount++;
+        riskScore += 35; 
+        anomalyReasons.push(
+          `Critical API hook detected: ${targetName} was modified with non-native code`,
+        );
+      } else if (!isBenignExtension) {
+        nonCriticalTamperingCount++;
+        riskScore += 10; 
+        anomalyReasons.push(
+          `Non-standard API override detected: ${targetName}`,
+        );
+      } else {
+        nonCriticalTamperingCount++;
+
+        riskScore += 2;
+      }
+    }
+  }
+
+
+  riskScore = Math.min(100, riskScore);
+
+  return {
+    isTampered: criticalTamperingCount > 0 || riskScore >= 50,
+    criticalTamperingCount,
+    nonCriticalTamperingCount,
+    riskScore,
+    anomalyReasons,
+    flaggedTargets,
+    
+  };
+}

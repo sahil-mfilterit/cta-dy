@@ -1,0 +1,324 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tilt · only</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    body {
+      min-height: 100vh;
+      background: #0b1120;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      padding: 16px;
+    }
+    .card {
+      background: rgba(18, 26, 40, 0.75);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-radius: 42px;
+      padding: 28px 24px;
+      max-width: 580px;
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7);
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .header h1 {
+      color: #d0e0ff;
+      font-weight: 300;
+      font-size: 1.4rem;
+      letter-spacing: 0.3px;
+    }
+    .badge {
+      color: #6a8abb;
+      font-size: 0.7rem;
+      background: rgba(255,255,255,0.04);
+      padding: 4px 14px;
+      border-radius: 30px;
+    }
+    .tilt-panel {
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 24px;
+      padding: 20px 18px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(4px);
+    }
+    .tilt-row {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .tilt-item .tag {
+      font-size: 0.65rem;
+      color: #5a6a8a;
+      letter-spacing: 0.3px;
+    }
+    .tilt-item .num {
+      font-size: 2rem;
+      font-weight: 480;
+      color: #b8d0fc;
+      font-family: 'JetBrains Mono', 'SF Mono', monospace;
+      line-height: 1.2;
+    }
+    .stream-box {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 16px;
+      padding: 12px 14px;
+      max-height: 170px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      line-height: 1.8;
+      color: #8fcbff;
+      border: 1px solid rgba(255, 255, 255, 0.02);
+      scrollbar-width: thin;
+      scrollbar-color: #3b5b8b transparent;
+    }
+    .stream-box::-webkit-scrollbar { width: 4px; }
+    .stream-box::-webkit-scrollbar-thumb { background: #3b5b8b; border-radius: 12px; }
+    .empty-placeholder {
+      color: #44556a;
+      font-style: italic;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      color: #5a6a8a;
+      font-size: 0.7rem;
+    }
+    .status-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #3b5b8b;
+      transition: background 0.2s;
+    }
+    .status-dot.active {
+      background: #4ade80;
+      box-shadow: 0 0 14px rgba(74, 222, 128, 0.3);
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: #b0c8f0;
+      padding: 8px 20px;
+      border-radius: 40px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: 0.15s;
+      font-weight: 400;
+    }
+    .btn:hover { background: rgba(255, 255, 255, 0.09); }
+    .btn-primary {
+      background: linear-gradient(135deg, #3b7bdd, #7a5cdb);
+      border-color: transparent;
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-danger {
+      border-color: rgba(255, 80, 80, 0.15);
+      color: #ff7a7a;
+    }
+    .btn-danger:hover { background: rgba(255, 80, 80, 0.06); }
+    .flex-right {
+      margin-left: auto;
+      align-self: center;
+      color: #4a6a8a;
+      font-size: 0.7rem;
+    }
+    @media (max-width: 480px) {
+      .card { padding: 20px 16px; }
+      .tilt-item .num { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>📐 Tilt · only</h1>
+    <span class="badge" id="tiltCount">0</span>
+  </div>
+
+  <div class="tilt-panel">
+    <div class="tilt-row">
+      <div class="tilt-item">
+        <div class="tag">β (pitch)</div>
+        <div class="num" id="betaDisplay">0°</div>
+      </div>
+      <div class="tilt-item">
+        <div class="tag">γ (roll)</div>
+        <div class="num" id="gammaDisplay">0°</div>
+      </div>
+    </div>
+
+    <div class="stream-box" id="tiltBox">
+      <span class="empty-placeholder">⏳ waiting for tilt data…</span>
+    </div>
+
+    <div class="status-row">
+      <span class="status-dot active" id="tiltDot"></span>
+      <span id="tiltStatus">recording</span>
+      <span style="margin-left:auto; color:#4a6a8a;" id="permBadge">✅ auto</span>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-danger" id="clearBtn">🗑️ Clear</button>
+    <button class="btn btn-primary" id="copyBtn">📋 Copy tilt</button>
+    <span class="flex-right">real device orientation</span>
+  </div>
+</div>
+
+<script>
+  (function(){
+    'use strict';
+
+    // DOM
+    const betaEl = document.getElementById('betaDisplay');
+    const gammaEl = document.getElementById('gammaDisplay');
+    const tiltBox = document.getElementById('tiltBox');
+    const tiltCount = document.getElementById('tiltCount');
+    const tiltDot = document.getElementById('tiltDot');
+    const tiltStatus = document.getElementById('tiltStatus');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const permBadge = document.getElementById('permBadge');
+
+    // state
+    const tiltStream = [];
+    let tiltActive = false;
+
+    // helpers
+    const r1 = v => Math.round(v * 10) / 10;
+
+    // render
+    function renderTilt() {
+      if (!tiltStream.length) {
+        tiltBox.innerHTML = `<span class="empty-placeholder">⏳ waiting for tilt data…</span>`;
+        tiltCount.textContent = '0';
+        return;
+      }
+      const parts = tiltStream.map(e =>
+        `<span style="color:#8fcbff;">${r1(e.beta)}°</span><span style="color:#44556a;">/</span><span style="color:#7aadff;">${r1(e.gamma)}°</span>`
+      );
+      tiltBox.innerHTML = `<span style="color:#6a8abb;">[</span> ${parts.join('<span style="color:#44556a;">, </span>')} <span style="color:#6a8abb;">]</span>`;
+      tiltBox.scrollTop = tiltBox.scrollHeight;
+      tiltCount.textContent = tiltStream.length;
+    }
+
+    // push tilt
+    function pushTilt(beta, gamma) {
+      tiltStream.push({ beta: r1(beta), gamma: r1(gamma) });
+      renderTilt();
+      tiltDot.classList.add('active');
+      tiltStatus.textContent = 'recording';
+      tiltActive = true;
+    }
+
+    // clear
+    function clearAll() {
+      tiltStream.length = 0;
+      renderTilt();
+      tiltDot.classList.remove('active');
+      tiltStatus.textContent = 'idle';
+      tiltActive = false;
+      betaEl.textContent = '0°';
+      gammaEl.textContent = '0°';
+    }
+
+    // copy
+    function copyTilt() {
+      if (!tiltStream.length) return alert('No tilt data');
+      const txt = tiltStream.map(e => `(${r1(e.beta)}°, ${r1(e.gamma)}°)`).join(', ');
+      navigator.clipboard?.writeText(`[${txt}]`).then(() => alert('Copied!')).catch(() => alert('Copy failed'));
+    }
+
+    // device orientation
+    function handleOrientation(e) {
+      const beta = e.beta || 0;
+      const gamma = e.gamma || 0;
+      betaEl.textContent = `${r1(beta)}°`;
+      gammaEl.textContent = `${r1(gamma)}°`;
+      if (!tiltStream.length || tiltActive) {
+        pushTilt(beta, gamma);
+      }
+    }
+
+    // permission
+    function requestPermission() {
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+          .then(state => {
+            if (state === 'granted') {
+              permBadge.textContent = '✅ granted';
+              window.addEventListener('deviceorientation', handleOrientation);
+            } else {
+              permBadge.textContent = '❌ denied';
+            }
+          })
+          .catch(() => { permBadge.textContent = '⚠️ error'; });
+      } else {
+        permBadge.textContent = '✅ auto';
+        window.addEventListener('deviceorientation', handleOrientation);
+      }
+    }
+
+    // init
+    function init() {
+      permBadge.textContent = '⏳ req…';
+      requestPermission();
+
+      clearBtn.addEventListener('click', clearAll);
+      copyBtn.addEventListener('click', copyTilt);
+
+      renderTilt();
+    }
+
+    init();
+  })();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
